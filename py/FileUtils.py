@@ -1,6 +1,8 @@
 from glob import glob
 import os
 
+expected_subfolders = sorted(["Motion", "Lapse", "Full"])
+
 def list_folders(path: str) -> list:
     """Returns the names of all immediate child folders of path.
 
@@ -22,3 +24,12 @@ def list_jpegs_recursive(path: str) -> list:
         list: list of all jpeg files
     """
     return [name for name in glob(os.path.join(path, "**/*.jpg"), recursive=True) if os.path.isfile(os.path.join(path, name))]
+
+def verify_expected_subfolders(session_path: str):
+    """Assert that the given session folder contains exactly the three subfolders Motion, Lapse, Full.
+
+    Args:
+        session_path (str): session folder path
+    """
+    subfolders = list_folders(session_path)
+    assert sorted(subfolders) == expected_subfolders

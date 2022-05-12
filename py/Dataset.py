@@ -1,9 +1,9 @@
 import os
 from tqdm import tqdm
 from py.DatasetStatistics import DatasetStatistics
-from py.FileUtils import list_folders, list_jpegs_recursive
+from py.FileUtils import list_folders, list_jpegs_recursive, expected_subfolders, verify_expected_subfolders
+from py.Session import Session
 
-expected_subfolders = sorted(["Motion", "Lapse", "Full"])
 
 class Dataset:
 
@@ -18,8 +18,7 @@ class Dataset:
         # Verify every session contains the subfolders Motion, Lapse, Full
         for folder in self.raw_sessions:
             path = os.path.join(self.base_path, folder)
-            subfolders = list_folders(path)
-            assert sorted(subfolders) == expected_subfolders
+            verify_expected_subfolders(path)
         print(f"Found {len(self.raw_sessions)} sessions")
 
 
@@ -38,3 +37,13 @@ class Dataset:
                 counts[folder[33:]][subfolder] = numFiles
                 counts[folder[33:]]["Total"] += numFiles
         return DatasetStatistics(counts)
+
+    def create_session(self, session_name: str) -> Session:
+        if session_name in self.raw_sessions:
+            return Session(os.path.join(self.base_path, session_name))
+        filtered = [s for s in self.raw_sessions if session_name.lower() in s.lower()]
+        if len(filtered) == 0:
+            raise ValueError(f"There are no sessions matching this name: {filtered}")
+        elif len(filtered) > 1:
+            raise ValueError(f"There are several sessions matching this name: {session_name}")
+        return Session(os.path.join(self.base_path, filtered[0]))
