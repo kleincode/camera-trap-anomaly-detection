@@ -1,4 +1,6 @@
+from datetime import datetime
 import pickle
+import subprocess
 from warnings import warn
 import os
 from tqdm import tqdm
@@ -36,9 +38,9 @@ class Session:
             with open(lapse_dates_file, "rb") as handle:
                 self.lapse_dates = pickle.load(handle)
             with open(motion_dates_file, "rb") as handle:
-                self.motion_dates_file = pickle.load(handle)
+                self.motion_dates = pickle.load(handle)
             with open(lapse_map_file, "rb") as handle:
-                self.lapse_map_file = pickle.load(handle)
+                self.lapse_map = pickle.load(handle)
             self.scanned = True
             print("Loaded scans.")
         else:
@@ -47,6 +49,7 @@ class Session:
             self.scanned = False
     
     def save_scans(self):
+        os.makedirs(os.path.join("session_scans", self.name), exist_ok=True)
         lapse_dates_file = os.path.join("session_scans", self.name, "lapse_dates.pickle")
         motion_dates_file = os.path.join("session_scans", self.name, "motion_dates.pickle")
         lapse_map_file = os.path.join("session_scans", self.name, "lapse_map.pickle")
@@ -66,13 +69,15 @@ class Session:
         # Scan motion dates
         print("Scanning motion dates...")
         self.motion_dates = {}
-        for motionFile in tqdm(list_jpegs_recursive(os.path.join(self.folder, "Motion"))):
-            self.motion_dates[os.path.basename(motionFile)] = get_image_date(motionFile)
+        motion_folder = os.path.join(self.folder, "Motion")
+        for file in tqdm(list_jpegs_recursive(motion_folder)):
+            self.motion_dates[os.path.relpath(file, motion_folder)] = get_image_date(file)
         # Scan lapse dates
         print("Scanning lapse dates...")
         self.lapse_dates = {}
-        for motionFile in tqdm(list_jpegs_recursive(os.path.join(self.folder, "Motion"))):
-            self.motion_dates[os.path.basename(motionFile)] = get_image_date(motionFile)
+        lapse_folder = os.path.join(self.folder, "Lapse")
+        for file in tqdm(list_jpegs_recursive(lapse_folder)):
+            self.lapse_dates[os.path.relpath(file, lapse_folder)] = get_image_date(file)
         # Create lapse map
         print("Creating lapse map...")
         self.lapse_map = {}
@@ -81,7 +86,43 @@ class Session:
                 self.lapse_map[date].append(file)
             else:
                 self.lapse_map[date] = [file]
+        self.scanned = True
         # Auto save
         if auto_save:
             print("Saving...")
             self.save_scans()
+    
+    def check_lapse_duplicates(self) -> bool:
+        total = 0
+        total_duplicates = 0
+        total_multiples = 0
+        deviant_duplicates = []
+        for date, files in tqdm(self.lapse_map.items()):
+            total += 1
+            if len(files) > 1:
+                total_duplicates += 1
+                file_size = -1
+                for f in files:
+                    f_size = os.path.getsize(os.path.join(self.folder, "Lapse", f))
+                    if file_size == -1:
+                        file_size = f_size
+                    elif f_size != file_size:
+                        deviant_duplicates.append(date)
+                        break
+                if len(files) > 2:
+                    total_multiples += 1
+        deviant_duplicates.sort()
+        print(f"* {total} lapse dates")
+        print(f"* {total_duplicates} duplicates")
+        print(f"* {total_multiples} multiples (more than two files per date)")
+        print(f"* {len(deviant_duplicates)} deviant duplicates: {deviant_duplicates}")
+        return total, total_duplicates, total_multiples, deviant_duplicates
+    
+    def open_images_for_date(self, date: datetime):
+        img_names = self.lapse_map.get(date, [])
+        if len(img_names) == 0:
+            warn("No images for this date!")
+        for i, img_name in enumerate(img_names):
+            full_path = os.path.join(self.folder, "Lapse", img_name)
+            print(f"#{i+1} {full_path}")
+            subprocess.call(("xdg-open", full_path))
