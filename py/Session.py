@@ -1,5 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import pickle
+import random
 import subprocess
 from warnings import warn
 import os
@@ -126,3 +127,66 @@ class Session:
             full_path = os.path.join(self.folder, "Lapse", img_name)
             print(f"#{i+1} {full_path}")
             subprocess.call(("xdg-open", full_path))
+
+    def get_motion_image_from_filename(self, filename: str) -> "MotionImage":
+        if filename in self.motion_dates:
+            return MotionImage(self, filename)
+        else:
+            raise ValueError(f"Unknown motion file name: {filename}")
+    
+    def get_random_motion_image(self) -> "MotionImage":
+        if len(self.motion_dates) == 0:
+            raise ValueError("No motion images in session!")
+        return MotionImage(self, random.choice(list(self.motion_dates.keys())))
+    
+    def get_closest_lapse_images(self, motion_file: str):
+        date: datetime = self.motion_dates[motion_file]
+        previous_date = date.replace(minute=0, second=0)
+        next_date = previous_date + timedelta(hours=1)
+        while not previous_date in self.lapse_map:
+            previous_date -= timedelta(hours=1)
+        while not next_date in self.lapse_map:
+            next_date += timedelta(hours=1)
+        if len(self.lapse_map[previous_date]) > 1:
+            warn(f"There are multiple lapse images for date {previous_date}! Choosing the first one.")
+        if len(self.lapse_map[next_date]) > 1:
+            warn(f"There are multiple lapse images for date {next_date}! Choosing the first one.")
+        return LapseImage(self, self.lapse_map[previous_date][0]), LapseImage(self, self.lapse_map[next_date][0])
+
+class MotionImage:
+    def __init__(self, session: Session, filename: str):
+        self.session = session
+        self.filename = filename
+        if not self.filename in session.motion_dates:
+            raise ValueError(f"File name {filename} not in session!")
+        if not os.path.isfile(self.get_full_path()):
+            raise ValueError(f"File Motion/{filename} in session folder {session.folder} not found!")
+    
+    def get_full_path(self) -> str:
+        return os.path.join(self.session.folder, "Motion", self.filename)
+    
+    def open(self):
+        full_path = self.get_full_path()
+        print(f"Opening {full_path}...")
+        subprocess.call(("xdg-open", full_path))
+
+    def get_closest_lapse_images(self):
+        return self.session.get_closest_lapse_images(self.filename)
+        
+class LapseImage:
+    def __init__(self, session: Session, filename: str):
+        self.session = session
+        self.filename = filename
+        if not self.filename in session.lapse_dates:
+            raise ValueError(f"File name {filename} not in session!")
+        if not os.path.isfile(self.get_full_path()):
+            raise ValueError(f"File Lapse/{filename} in session folder {session.folder} not found!")
+    
+    def get_full_path(self) -> str:
+        return os.path.join(self.session.folder, "Lapse", self.filename)
+    
+    def open(self):
+        full_path = self.get_full_path()
+        print(f"Opening {full_path}...")
+        subprocess.call(("xdg-open", full_path))
+        
