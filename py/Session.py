@@ -5,9 +5,11 @@ import subprocess
 from warnings import warn
 import os
 from tqdm import tqdm
+import matplotlib.image as mpimg
+from skimage import transform, io
 
 from py.FileUtils import list_folders, list_jpegs_recursive, verify_expected_subfolders
-from py.ImageUtils import get_image_date
+from py.ImageUtils import display_images, get_image_date
 
 class Session:
     def __init__(self, folder: str):
@@ -130,14 +132,18 @@ class Session:
 
     def get_motion_image_from_filename(self, filename: str) -> "MotionImage":
         if filename in self.motion_dates:
-            return MotionImage(self, filename)
+            return MotionImage(self, filename, self.motion_dates[filename])
         else:
             raise ValueError(f"Unknown motion file name: {filename}")
     
-    def get_random_motion_image(self) -> "MotionImage":
+    def get_random_motion_image(self, day_only=False, night_only=False) -> "MotionImage":
         if len(self.motion_dates) == 0:
             raise ValueError("No motion images in session!")
-        return MotionImage(self, random.choice(list(self.motion_dates.keys())))
+        img = None
+        while img is None or (day_only and img.is_nighttime()) or (night_only and img.is_daytime()):
+            filename = random.choice(list(self.motion_dates.keys()))
+            img = MotionImage(self, filename, self.motion_dates[filename])
+        return img
     
     def get_closest_lapse_images(self, motion_file: str):
         date: datetime = self.motion_dates[motion_file]
@@ -151,12 +157,13 @@ class Session:
             warn(f"There are multiple lapse images for date {previous_date}! Choosing the first one.")
         if len(self.lapse_map[next_date]) > 1:
             warn(f"There are multiple lapse images for date {next_date}! Choosing the first one.")
-        return LapseImage(self, self.lapse_map[previous_date][0]), LapseImage(self, self.lapse_map[next_date][0])
+        return LapseImage(self, self.lapse_map[previous_date][0], previous_date), LapseImage(self, self.lapse_map[next_date][0], next_date)
 
 class MotionImage:
-    def __init__(self, session: Session, filename: str):
+    def __init__(self, session: Session, filename: str, date: datetime):
         self.session = session
         self.filename = filename
+        self.date = date
         if not self.filename in session.motion_dates:
             raise ValueError(f"File name {filename} not in session!")
         if not os.path.isfile(self.get_full_path()):
@@ -170,13 +177,39 @@ class MotionImage:
         print(f"Opening {full_path}...")
         subprocess.call(("xdg-open", full_path))
 
+    def read(self, truncate_y = (40, 40), scale=1, gray=True):
+        full_path = self.get_full_path()
+        img = io.imread(full_path, as_gray=gray)
+        # truncate
+        if truncate_y is not None:
+            if truncate_y[0] > 0 and truncate_y[1] > 0:
+                img = img[truncate_y[0]:(-truncate_y[1]),:]
+            elif truncate_y[0] > 0:
+                img = img[truncate_y[0]:,:]
+            elif truncate_y[1] > 0:
+                img = img[:(-truncate_y[1]),:]
+        # scale
+        if scale is not None and scale < 1:
+            img = transform.rescale(img, scale)
+        return img
+
     def get_closest_lapse_images(self):
-        return self.session.get_closest_lapse_images(self.filename)
+        before, after = self.session.get_closest_lapse_images(self.filename)
+        # rel = 0 if motion image was taken at before lapse image, rel = 1 if motion image was taken at after lapse image
+        rel = (self.date - before.date).total_seconds() / (after.date - before.date).total_seconds()
+        return before, after, rel
+
+    def is_daytime(self):
+        return 6 <= self.date.hour <= 18
+    
+    def is_nighttime(self):
+        return not self.is_daytime()
         
 class LapseImage:
-    def __init__(self, session: Session, filename: str):
+    def __init__(self, session: Session, filename: str, date: datetime):
         self.session = session
         self.filename = filename
+        self.date = date
         if not self.filename in session.lapse_dates:
             raise ValueError(f"File name {filename} not in session!")
         if not os.path.isfile(self.get_full_path()):
@@ -189,4 +222,20 @@ class LapseImage:
         full_path = self.get_full_path()
         print(f"Opening {full_path}...")
         subprocess.call(("xdg-open", full_path))
+
+    def read(self, truncate_y = (40, 40), scale=1, gray=True):
+        full_path = self.get_full_path()
+        img = io.imread(full_path, as_gray=gray)
+        # truncate
+        if truncate_y is not None:
+            if truncate_y[0] > 0 and truncate_y[1] > 0:
+                img = img[truncate_y[0]:(-truncate_y[1]),:]
+            elif truncate_y[0] > 0:
+                img = img[truncate_y[0]:,:]
+            elif truncate_y[1] > 0:
+                img = img[:(-truncate_y[1]),:]
+        # scale
+        if scale is not None and scale < 1:
+            img = transform.rescale(img, scale)
+        return img
         
