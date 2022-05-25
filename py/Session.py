@@ -7,6 +7,7 @@ import os
 from tqdm import tqdm
 import matplotlib.image as mpimg
 from skimage import transform, io
+import IPython.display as display
 
 from py.FileUtils import list_folders, list_jpegs_recursive, verify_expected_subfolders
 from py.ImageUtils import display_images, get_image_date
@@ -26,6 +27,8 @@ class Session:
         self.motion_dates = {}
         # maps exif dates to lapse files (for prediction purposes)
         self.lapse_map = {}
+        # maps exif dates to motion files (for csv mapping purposes, generated on demand)
+        self.motion_map = None
         self.load_scans()
         if not self.scanned:
             print("Session not scanned. Run session.scan() to create scan files")
@@ -136,6 +139,22 @@ class Session:
         else:
             raise ValueError(f"Unknown motion file name: {filename}")
     
+    def __generate_motion_map(self):
+        if self.motion_map is not None:
+            return
+        print("Generating motion map...")
+        self.motion_map = {}
+        for filename, date in self.motion_dates.items():
+            if date in self.motion_map:
+                self.motion_map[date].append(filename)
+            else:
+                self.motion_map[date] = [filename]
+    
+    def get_motion_images_from_date(self, date: datetime):
+        self.__generate_motion_map()
+        filenames = self.motion_map.get(date, [])
+        return [MotionImage(self, filename, date) for filename in filenames]
+    
     def get_random_motion_image(self, day_only=False, night_only=False) -> "MotionImage":
         if len(self.motion_dates) == 0:
             raise ValueError("No motion images in session!")
@@ -159,18 +178,17 @@ class Session:
             warn(f"There are multiple lapse images for date {next_date}! Choosing the first one.")
         return LapseImage(self, self.lapse_map[previous_date][0], previous_date), LapseImage(self, self.lapse_map[next_date][0], next_date)
 
-class MotionImage:
-    def __init__(self, session: Session, filename: str, date: datetime):
+class SessionImage:
+    def __init__(self, session: Session, subfolder: str, filename: str, date: datetime):
         self.session = session
+        self.subfolder = subfolder
         self.filename = filename
         self.date = date
-        if not self.filename in session.motion_dates:
-            raise ValueError(f"File name {filename} not in session!")
         if not os.path.isfile(self.get_full_path()):
-            raise ValueError(f"File Motion/{filename} in session folder {session.folder} not found!")
+            raise ValueError(f"File {subfolder}/{filename} in session folder {session.folder} not found!")
     
     def get_full_path(self) -> str:
-        return os.path.join(self.session.folder, "Motion", self.filename)
+        return os.path.join(self.session.folder, self.subfolder, self.filename)
     
     def open(self):
         full_path = self.get_full_path()
@@ -190,52 +208,33 @@ class MotionImage:
                 img = img[:(-truncate_y[1]),:]
         # scale
         if scale is not None and scale < 1:
-            img = transform.rescale(img, scale)
+            img = transform.rescale(img, scale, multichannel=not gray)
         return img
-
-    def get_closest_lapse_images(self):
-        before, after = self.session.get_closest_lapse_images(self.filename)
-        # rel = 0 if motion image was taken at before lapse image, rel = 1 if motion image was taken at after lapse image
-        rel = (self.date - before.date).total_seconds() / (after.date - before.date).total_seconds()
-        return before, after, rel
 
     def is_daytime(self):
         return 6 <= self.date.hour <= 18
     
     def is_nighttime(self):
         return not self.is_daytime()
-        
-class LapseImage:
+    
+    def to_ipython_image(self, width=500, height=None):
+        return display.Image(filename=self.get_full_path(), width=width, height=height)
+
+class MotionImage(SessionImage):
     def __init__(self, session: Session, filename: str, date: datetime):
-        self.session = session
-        self.filename = filename
-        self.date = date
+        super().__init__(session, "Motion", filename, date)
+        if not self.filename in session.motion_dates:
+            raise ValueError(f"File name {filename} not in session!")
+
+    def get_closest_lapse_images(self):
+        before, after = self.session.get_closest_lapse_images(self.filename)
+        # rel = 0 if motion image was taken at before lapse image, rel = 1 if motion image was taken at after lapse image
+        rel = (self.date - before.date).total_seconds() / (after.date - before.date).total_seconds()
+        return before, after, rel
+        
+class LapseImage(SessionImage):
+    def __init__(self, session: Session, filename: str, date: datetime):
+        super().__init__(session, "Lapse", filename, date)
         if not self.filename in session.lapse_dates:
             raise ValueError(f"File name {filename} not in session!")
-        if not os.path.isfile(self.get_full_path()):
-            raise ValueError(f"File Lapse/{filename} in session folder {session.folder} not found!")
-    
-    def get_full_path(self) -> str:
-        return os.path.join(self.session.folder, "Lapse", self.filename)
-    
-    def open(self):
-        full_path = self.get_full_path()
-        print(f"Opening {full_path}...")
-        subprocess.call(("xdg-open", full_path))
-
-    def read(self, truncate_y = (40, 40), scale=1, gray=True):
-        full_path = self.get_full_path()
-        img = io.imread(full_path, as_gray=gray)
-        # truncate
-        if truncate_y is not None:
-            if truncate_y[0] > 0 and truncate_y[1] > 0:
-                img = img[truncate_y[0]:(-truncate_y[1]),:]
-            elif truncate_y[0] > 0:
-                img = img[truncate_y[0]:,:]
-            elif truncate_y[1] > 0:
-                img = img[:(-truncate_y[1]),:]
-        # scale
-        if scale is not None and scale < 1:
-            img = transform.rescale(img, scale)
-        return img
         
