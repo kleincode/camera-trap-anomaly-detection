@@ -165,18 +165,42 @@ class Session:
         return img
     
     def get_closest_lapse_images(self, motion_file: str):
+        """Returns the lapse images taken closest before and after this image, respectively.
+        If no such image is found, the corresponding returned image will be None.
+
+        Args:
+            motion_file (str): Filename of the motion image
+
+        Returns:
+            (MotionImage or None, MotionImage or None): Closest lapse images. Each image can be None if not found.
+        """
         date: datetime = self.motion_dates[motion_file]
         previous_date = date.replace(minute=0, second=0)
         next_date = previous_date + timedelta(hours=1)
+        i = 0
         while not previous_date in self.lapse_map:
             previous_date -= timedelta(hours=1)
-        while not next_date in self.lapse_map:
+            i += 1
+            if i > 24:
+                # no previous lapse image exists
+                previous_date = None
+                break
+        i = 0
+        while not next_date in self.lapse_map and i < 24:
             next_date += timedelta(hours=1)
-        if len(self.lapse_map[previous_date]) > 1:
+            i += 1
+            if i > 24:
+                # no next lapse image exists
+                next_date = None
+                break
+        if previous_date is not None and len(self.lapse_map[previous_date]) > 1:
             warn(f"There are multiple lapse images for date {previous_date}! Choosing the first one.")
-        if len(self.lapse_map[next_date]) > 1:
+        if next_date is not None and len(self.lapse_map[next_date]) > 1:
             warn(f"There are multiple lapse images for date {next_date}! Choosing the first one.")
-        return LapseImage(self, self.lapse_map[previous_date][0], previous_date), LapseImage(self, self.lapse_map[next_date][0], next_date)
+        
+        previous_img = None if previous_date is None else LapseImage(self, self.lapse_map[previous_date][0], previous_date)
+        next_img = None if next_date is None else LapseImage(self, self.lapse_map[next_date][0], next_date)
+        return previous_img, next_img
 
 class SessionImage:
     def __init__(self, session: Session, subfolder: str, filename: str, date: datetime):
