@@ -216,6 +216,15 @@ class Session:
         # end of all time series
         yield imgs
 
+    def generate_motion_images(self):
+        """Yields all motion images in this session.
+
+        Yields:
+            MotionImage: A MotionImage
+        """
+        for file, date in self.motion_dates.items():
+            yield MotionImage(self, file, date)
+
     
     def get_closest_lapse_images(self, motion_file: str):
         """Returns the lapse images taken closest before and after this image, respectively.
@@ -239,7 +248,7 @@ class Session:
                 previous_date = None
                 break
         i = 0
-        while not next_date in self.lapse_map and i < 24:
+        while not next_date in self.lapse_map:
             next_date += timedelta(hours=1)
             i += 1
             if i > 24:
@@ -305,8 +314,16 @@ class MotionImage(SessionImage):
 
     def get_closest_lapse_images(self):
         before, after = self.session.get_closest_lapse_images(self.filename)
+        rel = -1
         # rel = 0 if motion image was taken at before lapse image, rel = 1 if motion image was taken at after lapse image
-        rel = (self.date - before.date).total_seconds() / (after.date - before.date).total_seconds()
+        if before is None and after is not None:
+            rel = 1
+        elif before is not None and after is None:
+            rel = 0
+        elif before is not None and after is not None:
+            rel = (self.date - before.date).total_seconds() / (after.date - before.date).total_seconds()
+        else:
+            warn("No before and no after image!")
         return before, after, rel
         
 class LapseImage(SessionImage):
