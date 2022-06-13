@@ -140,6 +140,8 @@ class Session:
             raise ValueError(f"Unknown motion file name: {filename}")
     
     def __generate_motion_map(self):
+        """Populates self.motion_map which maps dates to motion images
+        """
         if self.motion_map is not None:
             return
         print("Generating motion map...")
@@ -163,6 +165,57 @@ class Session:
             filename = random.choice(list(self.motion_dates.keys()))
             img = MotionImage(self, filename, self.motion_dates[filename])
         return img
+    
+    def get_random_motion_image_set(self, day_only=False, night_only=False) -> list:
+        """Returns a list of all motion images with the same date +- 10 min.
+        The date is picked randomly from all available dates.
+        May loop indefinitely if there are no matching motion images.
+
+        Args:
+            day_only (bool, optional): Only pick daytime images. Defaults to False.
+            night_only (bool, optional): Only pick nighttime images. Defaults to False.
+
+        Raises:
+            ValueError: No motion images in session
+
+        Returns:
+            list: Non-empty list of motion images with the same date
+        """
+        self.__generate_motion_map()
+        if len(self.motion_map) == 0:
+            raise ValueError("No motion images in session!")
+        imgs = []
+        date = None
+        while len(imgs) == 0 or (day_only and imgs[0].is_nighttime()) or (night_only and imgs[0].is_daytime()):
+            date = random.choice(list(self.motion_map.keys()))
+            filenames = self.motion_map.get(date, [])
+            imgs = [MotionImage(self, filename, date) for filename in filenames]
+        # include all images within +- 10 min
+        for other_date in self.motion_map.keys():
+            if date != other_date and abs((date - other_date).total_seconds()) <= 60 * 10:
+                filenames = self.motion_map.get(other_date, [])
+                imgs += [MotionImage(self, filename, other_date) for filename in filenames]
+        return imgs
+    
+    def generate_motion_image_sets(self) -> list:
+        self.__generate_motion_map()
+        if len(self.motion_map) == 0:
+            raise ValueError("No motion images in session!")
+        imgs = []
+        dates = sorted(list(self.motion_map.keys()))
+        start_date = dates[0]
+        for date in dates:
+            if abs((date - start_date).total_seconds()) > 60 * 20:
+                # end image time series
+                yield imgs
+                start_date = date
+                imgs = []
+            # continue time series
+            filenames = self.motion_map.get(date, [])
+            imgs += [MotionImage(self, filename, date) for filename in filenames]
+        # end of all time series
+        yield imgs
+
     
     def get_closest_lapse_images(self, motion_file: str):
         """Returns the lapse images taken closest before and after this image, respectively.
