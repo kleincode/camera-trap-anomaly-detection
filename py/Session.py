@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 import pickle
 import random
+import cv2 as cv
 import subprocess
 from warnings import warn
 import os
@@ -225,6 +226,15 @@ class Session:
         for file, date in self.motion_dates.items():
             yield MotionImage(self, file, date)
 
+    def generate_lapse_images(self):
+        """Yields all lapse images in this session.
+
+        Yields:
+            LapseImage: A LapseImage
+        """
+        for file, date in self.lapse_dates.items():
+            yield LapseImage(self, file, date)
+
     
     def get_closest_lapse_images(self, motion_file: str):
         """Returns the lapse images taken closest before and after this image, respectively.
@@ -296,6 +306,26 @@ class SessionImage:
         if scale is not None and scale < 1:
             img = transform.rescale(img, scale, multichannel=not gray)
         return img
+    
+    def read_opencv(self, truncate_y = (40, 40), scale=1, gray=True):
+        full_path = self.get_full_path()
+        img = cv.imread(full_path)
+        # grayscale
+        if gray:
+            img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+        # truncate
+        if truncate_y is not None:
+            if truncate_y[0] > 0 and truncate_y[1] > 0:
+                img = img[truncate_y[0]:(-truncate_y[1])]
+            elif truncate_y[0] > 0:
+                img = img[truncate_y[0]:]
+            elif truncate_y[1] > 0:
+                img = img[:(-truncate_y[1])]
+        # scale
+        if scale is not None and scale < 1:
+            img = cv.resize(img, None, fx=scale, fy=scale, interpolation=cv.INTER_LINEAR)
+        return img
+        
 
     def is_daytime(self):
         return 6 <= self.date.hour <= 18
