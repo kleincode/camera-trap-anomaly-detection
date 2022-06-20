@@ -70,19 +70,25 @@ class Session:
             pickle.dump(self.lapse_map, handle, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"Saved {lapse_map_file}")
     
+    def get_lapse_folder(self) -> str:
+        return os.path.join(self.folder, "Lapse")
+    
+    def get_motion_folder(self) -> str:
+        return os.path.join(self.folder, "Motion")
+    
     def scan(self, force=False, auto_save=True):
         if self.scanned and not force:
             raise ValueError("Session is already scanned. Use force=True to scan anyway and override scan progress.")
         # Scan motion dates
         print("Scanning motion dates...")
         self.motion_dates = {}
-        motion_folder = os.path.join(self.folder, "Motion")
+        motion_folder = self.get_motion_folder()
         for file in tqdm(list_jpegs_recursive(motion_folder)):
             self.motion_dates[os.path.relpath(file, motion_folder)] = get_image_date(file)
         # Scan lapse dates
         print("Scanning lapse dates...")
         self.lapse_dates = {}
-        lapse_folder = os.path.join(self.folder, "Lapse")
+        lapse_folder = self.get_lapse_folder()
         for file in tqdm(list_jpegs_recursive(lapse_folder)):
             self.lapse_dates[os.path.relpath(file, lapse_folder)] = get_image_date(file)
         # Create lapse map
