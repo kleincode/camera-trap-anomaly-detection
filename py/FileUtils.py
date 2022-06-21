@@ -32,4 +32,5 @@ def verify_expected_subfolders(session_path: str):
         session_path (str): session folder path
     """
     subfolders = list_folders(session_path)
-    assert sorted(subfolders) == expected_subfolders
+    if sorted(subfolders) != sorted(expected_subfolders):
+        raise AssertionError(f"{session_path}: Expected subfolders {expected_subfolders} but found {subfolders}")
