@@ -1,5 +1,6 @@
 from glob import glob
 import os
+import pickle
 
 expected_subfolders = sorted(["Motion", "Lapse", "Full"])
 
@@ -34,3 +35,13 @@ def verify_expected_subfolders(session_path: str):
     subfolders = list_folders(session_path)
     if sorted(subfolders) != sorted(expected_subfolders):
         raise AssertionError(f"{session_path}: Expected subfolders {expected_subfolders} but found {subfolders}")
+
+# Pickle helpers
+
+def dump(filename: str, data):
+    with open(filename, "wb") as f:
+        pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+def load(filename: str):
+    with open(filename, "rb") as f:
+        return pickle.load(f)

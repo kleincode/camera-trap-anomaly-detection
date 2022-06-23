@@ -4,12 +4,13 @@ from torchvision import io, transforms
 from torch.utils.data import DataLoader, Dataset
 
 class ImageDataset(Dataset):
-    def __init__(self, img_dir: str, transform = None, labeler = None):
+    def __init__(self, img_dir: str, transform = None, labeler = None, filter = lambda filename: True):
         self.img_dir = img_dir
         self.transform = transform
         self.labeler = labeler
         with os.scandir(img_dir) as it:
-            self.files = [entry.name for entry in it if entry.name.endswith(".jpg") and entry.is_file()]
+            self.files = [entry.name for entry in it if entry.name.endswith(".jpg") and entry.is_file() and filter(entry.name)]
+        print(f"{len(self.files)} files found")
     
     def __len__(self):
         return len(self.files)
@@ -24,7 +25,7 @@ class ImageDataset(Dataset):
             label = self.labeler(self.files[idx])
         return img, label
 
-def create_dataloader(img_folder: str, target_size: tuple = (256, 256), batch_size: int = 32, shuffle: bool = True, truncate_y: tuple = (40, 40), labeler = None, skip_transforms: bool = False) -> DataLoader:
+def create_dataloader(img_folder: str, target_size: tuple = (256, 256), batch_size: int = 32, shuffle: bool = True, truncate_y: tuple = (40, 40), labeler = None, skip_transforms: bool = False, filter = lambda filename: True) -> DataLoader:
     """Creates a PyTorch DataLoader from the given image folder.
 
     Args:
@@ -35,6 +36,7 @@ def create_dataloader(img_folder: str, target_size: tuple = (256, 256), batch_si
         truncate_y (tuple, optional): (a, b), cut off the first a and the last b pixel rows of the unresized image. Defaults to (40, 40).
         labeler (lambda(filename: str) -> int, optional): Lambda that maps every filename to an int label. By default all labels are 0. Defaults to None.
         skip_transforms (bool, optional): Skip truncate and resize transforms. (If the images are already truncated and resized). Defaults to False.
+        filter (lambda: str -> bool, optional): Additional filter by filename. Defaults to lambda filename: True.
 
     Returns:
         DataLoader: PyTorch DataLoader
@@ -57,7 +59,7 @@ def create_dataloader(img_folder: str, target_size: tuple = (256, 256), batch_si
             transforms.Normalize((0.5), (0.5)) # min-max normalization to [-1, 1]
         ])
 
-    data = ImageDataset(img_folder, transform=transform, labeler=labeler)
+    data = ImageDataset(img_folder, transform=transform, labeler=labeler, filter=filter)
     return DataLoader(data, batch_size=batch_size, shuffle=shuffle)
 
 def model_output_to_image(y):
