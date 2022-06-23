@@ -1,36 +1,16 @@
+# Approach 3: Local features
+# This script is used for generating a BOW vocabulary using
+# densely sampeled SIFT features on Lapse images.
+# See eval_bow.py for evaluation.
+
 import argparse
 import os
-import cv2 as cv
 import numpy as np
-from tqdm import tqdm
 
 from py.Dataset import Dataset
-from py.Session import SessionImage
+from py.LocalFeatures import extract_descriptors, generate_dictionary_from_descriptors, generate_bow_features
 
-def dense_keypoints(img, step=30, off=(15, 12)):
-    border_dist = (step + 1) // 2
-    return [cv.KeyPoint(x, y, step) for y in range(border_dist + off[0], img.shape[0] - border_dist, step) 
-                                    for x in range(border_dist + off[1], img.shape[1] - border_dist, step)]
-
-def extract_descriptors(images: list[SessionImage]):
-    sift = cv.SIFT_create()
-    dscs = []
-    for image in tqdm(images):
-        img = image.read_opencv(gray=True)
-        kp = dense_keypoints(img)
-        kp, des = sift.compute(img, kp)
-        dscs.append(des)
-    return np.array(dscs)
-
-def generate_dictionary(dscs, dictionary_size):
-    # dictionary size = number of clusters
-    BOW = cv.BOWKMeansTrainer(dictionary_size)
-    for dsc in dscs:
-        BOW.add(dsc)
-    dictionary = BOW.cluster()
-    return dictionary
-
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description="BOW train script")
     parser.add_argument("dataset_dir", type=str, help="Directory of the dataset containing all session folders")
     parser.add_argument("session_name", type=str, help="Name of the session to use for Lapse images (e.g. marten_01)")
@@ -45,10 +25,18 @@ if __name__ == "__main__":
     # Lapse DSIFT descriptors
 
     lapse_dscs_file = os.path.join(save_dir, "lapse_dscs.npy")
+    dictionary_file = os.path.join(save_dir, f"bow_dict_{args.clusters}.npy")
+    train_feat_file = os.path.join(save_dir, f"bow_train_{args.clusters}.npy")
+
     if os.path.isfile(lapse_dscs_file):
-        print(f"{lapse_dscs_file} already exists, loading lapse descriptor from file...")
-        lapse_dscs = np.load(lapse_dscs_file)
+        if os.path.isfile(dictionary_file):
+            # if dictionary file already exists, we don't need the lapse descriptors
+            print(f"{lapse_dscs_file} already exists, skipping lapse descriptor extraction...")
+        else:
+            print(f"{lapse_dscs_file} already exists, loading lapse descriptor from file...")
+            lapse_dscs = np.load(lapse_dscs_file)
     else:
+        # Step 1 - extract dense SIFT descriptors
         print("Extracting lapse descriptors...")
         lapse_dscs = extract_descriptors(list(session.generate_lapse_images()))
         os.makedirs(save_dir, exist_ok=True)
@@ -56,13 +44,26 @@ if __name__ == "__main__":
 
     # BOW dictionary
 
-    dictionary_file = os.path.join(save_dir, f"bow_dict_{args.clusters}.npy")
     if os.path.isfile(dictionary_file):
         print(f"{dictionary_file} already exists, loading BOW dictionary from file...")
         dictionary = np.load(dictionary_file)
     else:
+        # Step 2 - create BOW dictionary from Lapse SIFT descriptors
         print(f"Creating BOW vocabulary with {args.clusters} clusters...")
-        dictionary = generate_dictionary(lapse_dscs, args.clusters)
+        dictionary = generate_dictionary_from_descriptors(lapse_dscs, args.clusters)
         np.save(dictionary_file, dictionary)
     
+    # Extract Lapse BOW features using vocabulary (train data)
+
+    if os.path.isfile(train_feat_file):
+        print(f"{train_feat_file} already exists, skipping lapse BOW feature extraction...")
+    else:
+        # Step 3 - calculate training data (BOW features of Lapse images)
+        print(f"Extracting BOW features from Lapse images...")
+        features = list(generate_bow_features(list(session.generate_lapse_images()), dictionary))
+        np.save(train_feat_file, features)
+    
     print("Complete!")
+
+if __name__ == "__main__":
+    main()
