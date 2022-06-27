@@ -197,9 +197,9 @@ class Session:
             date = random.choice(list(self.motion_map.keys()))
             filenames = self.motion_map.get(date, [])
             imgs = [MotionImage(self, filename, date) for filename in filenames]
-        # include all images within +- 10 min
+        # include all images within +- 5 min
         for other_date in self.motion_map.keys():
-            if date != other_date and abs((date - other_date).total_seconds()) <= 60 * 10:
+            if date != other_date and abs((date - other_date).total_seconds()) <= 60 * 5:
                 filenames = self.motion_map.get(other_date, [])
                 imgs += [MotionImage(self, filename, other_date) for filename in filenames]
         return imgs

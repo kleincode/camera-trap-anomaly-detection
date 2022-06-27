@@ -7,36 +7,44 @@ from tqdm import tqdm
 
 from py.Session import SessionImage
 
-def dense_keypoints(img, step=30, off=(15, 12)):
-    """Generates a list of densely sampled keypoints on img.
+def dense_keypoints(img, step=30):
+    """Generates a list of densely sampled keypoints on img. The keypoints are arranged tightly
+    next to each other without spacing. The group of all keypoints is centered in the image.
 
     Args:
         img (_type_): Image to sample from. (only the shape is relevant)
         step (int, optional): Vertical and horizontal step size between and size of keypoints. Defaults to 30.
-        off (tuple, optional): y and x offset of the first keypoint in the grid. Defaults to (15, 12).
 
     Returns:
         list[cv.KeyPoint]: List of keypoints
     """
+    # calculate offset to center keypoints
+    off = ((img.shape[0] % step) // 2, (img.shape[1] % step) // 2)
     border_dist = (step + 1) // 2
     return [cv.KeyPoint(x, y, step) for y in range(border_dist + off[0], img.shape[0] - border_dist, step) 
                                     for x in range(border_dist + off[1], img.shape[1] - border_dist, step)]
 
 
-def extract_descriptors(images: list[SessionImage]):
+def extract_descriptors(images: list[SessionImage], kp_step: int = 30):
     """Extracts DSIFT descriptors from the provided images and returns them in a single array.
 
     Args:
         images (list[SessionImage]): List of images to read and compute descriptors from.
+        kp_step (int, optional): Keypoint step size, see dense_keypoints. Defaults to 30.
 
     Returns:
         np.array, shape=(len(images)*keypoints_per_image, 128): DSIFT descriptors.
     """
     sift = cv.SIFT_create()
     dscs = []
+    output_kp = False
     for image in tqdm(images):
         img = image.read_opencv(gray=True)
-        kp = dense_keypoints(img)
+        kp = dense_keypoints(img, kp_step)
+        # output number of keypoints once
+        if not output_kp:
+            print(f"{len(kp)} keypoints per image.")
+            output_kp = True
         kp, des = sift.compute(img, kp)
         dscs.append(des)
     return np.array(dscs)
@@ -58,13 +66,14 @@ def generate_dictionary_from_descriptors(dscs, dictionary_size: int):
     dictionary = BOW.cluster()
     return dictionary
 
-def generate_bow_features(images: list[SessionImage], dictionary):
+def generate_bow_features(images: list[SessionImage], dictionary, kp_step: int = 30):
     """Calculates the BOW features for the provided images using dictionary.
     Yields a feature vector for every image.
 
     Args:
         images (list[SessionImage]): List of images to read and compute feature vectors from.
         dictionary (np.array, shape=(-1, 128)): BOW dictionary.
+        kp_step (int, optional): Keypoint step size, see dense_keypoints. Must be identical to the step size used for vocabulary generation. Defaults to 30.
 
     Yields:
         (str, np.array of shape=(dictionary.shape[0])): (filename, feature vector)
@@ -76,6 +85,6 @@ def generate_bow_features(images: list[SessionImage], dictionary):
     
     for image in tqdm(images):
         img = image.read_opencv(gray=True)
-        kp = dense_keypoints(img)
+        kp = dense_keypoints(img, kp_step)
         feat = bow_extractor.compute(img, kp)
         yield image.filename, feat

@@ -11,6 +11,7 @@ def main():
     parser.add_argument("dataset_dir", type=str, help="Directory of the dataset containing all session folders")
     parser.add_argument("session_name", type=str, help="Name of the session to use for Lapse images (e.g. marten_01)")
     parser.add_argument("--clusters", type=int, help="Number of clusters / BOW vocabulary size", default=1024)
+    parser.add_argument("--step_size", type=int, help="DSIFT keypoint step size. Smaller step size = more keypoints.", default=30)
 
     args = parser.parse_args()
 
@@ -20,9 +21,9 @@ def main():
 
     # Lapse DSIFT descriptors
 
-    dictionary_file = os.path.join(save_dir, f"bow_dict_{args.clusters}.npy")
-    train_feat_file = os.path.join(save_dir, f"bow_train_{args.clusters}.npy")
-    eval_file = os.path.join(save_dir, f"bow_eval_{args.clusters}.csv")
+    dictionary_file = os.path.join(save_dir, f"bow_dict_{args.step_size}_{args.clusters}.npy")
+    train_feat_file = os.path.join(save_dir, f"bow_train_{args.step_size}_{args.clusters}.npy")
+    eval_file = os.path.join(save_dir, f"bow_eval_{args.step_size}_{args.clusters}.csv")
 
     if not os.path.isfile(dictionary_file):
         print(f"ERROR: BOW dictionary missing! ({dictionary_file})")
@@ -41,7 +42,7 @@ def main():
 
         print("Evaluating...")
         with open(eval_file, "a+") as f:
-            for filename, feat in generate_bow_features(list(session.generate_motion_images()), dictionary):
+            for filename, feat in generate_bow_features(list(session.generate_motion_images()), dictionary, kp_step=args.step_size):
                 y = clf.decision_function(feat)[0]
                 f.write(f"{filename},{y}\n")
                 f.flush()
