@@ -1,5 +1,6 @@
 from datetime import datetime
 from PIL import Image
+import numpy as np
 import matplotlib.pyplot as plt
 
 def get_image_date(img_path: str) -> datetime:
@@ -37,4 +38,5 @@ def display_images(images: list, titles: list, colorbar=False, size=(8, 5), row_
     plt.tight_layout()
     plt.show()
 
-
+def is_daytime(img, threshold=50) -> bool:
+    return np.mean([abs(img[:,:,0] - img[:,:,1]), abs(img[:,:,1] - img[:,:,2]), abs(img[:,:,2] - img[:,:,0])]) > threshold

@@ -16,6 +16,7 @@ def main():
     parser.add_argument("session_name", type=str, help="Name of the session to use for Lapse images (e.g. marten_01)")
     parser.add_argument("--clusters", type=int, help="Number of clusters / BOW vocabulary size", default=1024)
     parser.add_argument("--step_size", type=int, help="DSIFT keypoint step size. Smaller step size = more keypoints.", default=30)
+    parser.add_argument("--keypoint_size", type=int, help="DSIFT keypoint size. Should be >= step_size.", default=60)
 
     args = parser.parse_args()
 
@@ -25,9 +26,9 @@ def main():
 
     # Lapse DSIFT descriptors
 
-    lapse_dscs_file = os.path.join(save_dir, f"lapse_dscs_{args.step_size}.npy")
-    dictionary_file = os.path.join(save_dir, f"bow_dict_{args.step_size}_{args.clusters}.npy")
-    train_feat_file = os.path.join(save_dir, f"bow_train_{args.step_size}_{args.clusters}.npy")
+    lapse_dscs_file = os.path.join(save_dir, f"lapse_dscs_{args.step_size}_{args.keypoint_size}.npy")
+    dictionary_file = os.path.join(save_dir, f"bow_dict_{args.step_size}_{args.keypoint_size}_{args.clusters}.npy")
+    train_feat_file = os.path.join(save_dir, f"bow_train_{args.step_size}_{args.keypoint_size}_{args.clusters}.npy")
 
     if os.path.isfile(lapse_dscs_file):
         if os.path.isfile(dictionary_file):
@@ -39,7 +40,7 @@ def main():
     else:
         # Step 1 - extract dense SIFT descriptors
         print("Extracting lapse descriptors...")
-        lapse_dscs = extract_descriptors(list(session.generate_lapse_images()), kp_step=args.step_size)
+        lapse_dscs = extract_descriptors(list(session.generate_lapse_images()), kp_step=args.step_size, kp_size=args.keypoint_size)
         os.makedirs(save_dir, exist_ok=True)
         np.save(lapse_dscs_file, lapse_dscs)
 
@@ -61,7 +62,7 @@ def main():
     else:
         # Step 3 - calculate training data (BOW features of Lapse images)
         print(f"Extracting BOW features from Lapse images...")
-        features = [feat for _, feat in generate_bow_features(list(session.generate_lapse_images()), dictionary, kp_step=args.step_size)]
+        features = [feat for _, feat in generate_bow_features(list(session.generate_lapse_images()), dictionary, kp_step=args.step_size, kp_size=args.keypoint_size)]
         np.save(train_feat_file, features)
     
     print("Complete!")
