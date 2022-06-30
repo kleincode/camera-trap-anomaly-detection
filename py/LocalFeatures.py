@@ -48,8 +48,8 @@ def extract_descriptors(images: list[SessionImage], kp_step: int = 30, kp_size: 
             print(f"{len(kp)} keypoints per image.")
             output_kp = True
         kp, des = sift.compute(img, kp)
-        dscs.append(des)
-    return np.array(dscs)
+        dscs.extend(des)
+    return np.array(dscs).reshape(-1, 128)
 
 def generate_dictionary_from_descriptors(dscs, dictionary_size: int):
     """Clusters the given (D)SIFT descriptors using k-means.
@@ -62,10 +62,14 @@ def generate_dictionary_from_descriptors(dscs, dictionary_size: int):
     Returns:
         np.array, shape=(dictionary_size, 128): BOW dictionary.
     """
+    assert len(dscs.shape) == 2 and dscs.shape[1] == 128
+    assert dictionary_size > 0 and dictionary_size <= dscs.shape[0]
+
     BOW = cv.BOWKMeansTrainer(dictionary_size)
     for dsc in dscs:
         BOW.add(dsc)
     dictionary = BOW.cluster()
+    assert dictionary.shape == (dictionary_size, 128)
     return dictionary
 
 def generate_bow_features(images: list[SessionImage], dictionary, kp_step: int = 30, kp_size: int = 60):
@@ -81,6 +85,9 @@ def generate_bow_features(images: list[SessionImage], dictionary, kp_step: int =
     Yields:
         (str, np.array of shape=(dictionary.shape[0])): (filename, feature vector)
     """
+    assert len(dictionary.shape) == 2 and dictionary.shape[1] == 128
+    assert kp_size > 0 and kp_step > 0
+
     flann = cv.FlannBasedMatcher({"algorithm": 0, "trees": 5}, {"checks": 50})
     sift = cv.SIFT_create()
     bow_extractor = cv.BOWImgDescriptorExtractor(sift, flann) # or cv.BFMatcher(cv.NORM_L2)

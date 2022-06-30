@@ -24,6 +24,7 @@ def list_jpegs_recursive(path: str) -> list:
     Returns:
         list: list of all jpeg files
     """
+    print(os.path.join(path, "**/*.jpg"))
     return [name for name in glob(os.path.join(path, "**/*.jpg"), recursive=True) if os.path.isfile(os.path.join(path, name))]
 
 def verify_expected_subfolders(session_path: str):

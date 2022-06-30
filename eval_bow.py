@@ -17,19 +17,22 @@ def main():
     parser.add_argument("session_name", type=str, help="Name of the session to use for Lapse images (e.g. marten_01)")
     parser.add_argument("--clusters", type=int, help="Number of clusters / BOW vocabulary size", default=1024)
     parser.add_argument("--step_size", type=int, help="DSIFT keypoint step size. Smaller step size = more keypoints.", default=30)
-    parser.add_argument("--keypoint_size", type=int, help="DSIFT keypoint size. Should be >= step_size.", default=60)
+    parser.add_argument("--keypoint_size", type=int, help="DSIFT keypoint size. Defaults to step_size.", default=-1)
+    parser.add_argument("--include_motion", action="store_true", help="Include motion images for training.")
 
     args = parser.parse_args()
+    if args.keypoint_size <= 0:
+        args.keypoint_size = args.step_size
+    print(f"Using keypoint size {args.keypoint_size} with step size {args.step_size}.")
 
     ds = Dataset(args.dataset_dir)
     session = ds.create_session(args.session_name)
     save_dir = f"./bow_train_NoBackup/{session.name}"
 
-    # Lapse DSIFT descriptors
-
-    dictionary_file = os.path.join(save_dir, f"bow_dict_{args.step_size}_{args.keypoint_size}_{args.clusters}.npy")
-    train_feat_file = os.path.join(save_dir, f"bow_train_{args.step_size}_{args.keypoint_size}_{args.clusters}.npy")
-    eval_file = os.path.join(save_dir, f"bow_eval_{args.step_size}_{args.keypoint_size}_{args.clusters}.csv")
+    suffix = "_motion" if args.include_motion else ""
+    dictionary_file = os.path.join(save_dir, f"bow_dict_{args.step_size}_{args.keypoint_size}_{args.clusters}{suffix}.npy")
+    train_feat_file = os.path.join(save_dir, f"bow_train_{args.step_size}_{args.keypoint_size}_{args.clusters}{suffix}.npy")
+    eval_file = os.path.join(save_dir, f"bow_eval_{args.step_size}_{args.keypoint_size}_{args.clusters}{suffix}.csv")
 
     if not os.path.isfile(dictionary_file):
         print(f"ERROR: BOW dictionary missing! ({dictionary_file})")
