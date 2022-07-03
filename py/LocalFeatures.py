@@ -4,6 +4,7 @@
 import cv2 as cv
 import numpy as np
 from tqdm import tqdm
+from sklearn.cluster import KMeans
 
 from py.Session import SessionImage
 
@@ -65,10 +66,8 @@ def generate_dictionary_from_descriptors(dscs, dictionary_size: int):
     assert len(dscs.shape) == 2 and dscs.shape[1] == 128
     assert dictionary_size > 0 and dictionary_size <= dscs.shape[0]
 
-    BOW = cv.BOWKMeansTrainer(dictionary_size)
-    for dsc in dscs:
-        BOW.add(dsc)
-    dictionary = BOW.cluster()
+    kmeans = KMeans(dictionary_size, verbose=1).fit(dscs)
+    dictionary = kmeans.cluster_centers_
     assert dictionary.shape == (dictionary_size, 128)
     return dictionary
 
