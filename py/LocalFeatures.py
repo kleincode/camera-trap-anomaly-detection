@@ -71,6 +71,22 @@ def generate_dictionary_from_descriptors(dscs, dictionary_size: int):
     assert dictionary.shape == (dictionary_size, 128)
     return dictionary
 
+def pick_random_descriptors(dscs, dictionary_size: int):
+    """Picks dictionary_size random descriptors to use as a vocabulary.
+    Much faster but less accurate alternative to kmeans clustering.
+
+    Args:
+        dscs (np.array, shape(-1, 128)): (D)SIFT descriptors to pick from.
+        dictionary_size (int): Number of clusters / vocabulary size.
+
+    Returns:
+        np.array, shape=(dictionary_size, 128): Randomly picked BOW dictionary.
+    """
+    assert len(dscs.shape) == 2 and dscs.shape[1] == 128
+    assert dictionary_size > 0 and dictionary_size <= dscs.shape[0]
+
+    return dscs[np.random.choice(len(dscs), size=dictionary_size, replace=False)]
+
 def generate_bow_features(images: list[SessionImage], dictionary, kp_step: int = 30, kp_size: int = 60):
     """Calculates the BOW features for the provided images using dictionary.
     Yields a feature vector for every image.

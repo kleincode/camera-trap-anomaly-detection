@@ -1,3 +1,7 @@
+# Quick labeling script.
+# The user is displayed every image and can then assign an image as "normal" (1-key) or "anomalous" (2-key).
+# The list of all normal and anomalous images will be printed after every image to be copied to Labels.py.
+
 import cv2
 import argparse
 import os
@@ -23,17 +27,17 @@ def main():
     anomalous = []
     motion_folder = session.get_motion_folder()
     quit = False
-    print(list_jpegs_recursive(motion_folder), motion_folder)
+    # print(list_jpegs_recursive(motion_folder), motion_folder)
     for img_file in sorted(list_jpegs_recursive(motion_folder)):
         if skip > 0:
             skip -= 1
-            print(skip)
             continue
         img_nr = int(img_file[-9:-4])
-
-        print(f"Labeling img #{img_nr}... ", end="")
+        print(f"Labeling img #{img_nr} ({img_file})... ", end="")
         image = cv2.imread(os.path.join(motion_folder, img_file))
         cv2.imshow("labeler", image)
+
+        # wait for user to press label or exit key
         while True:
             key = cv2.waitKey(0)
             if key == ord("1"):

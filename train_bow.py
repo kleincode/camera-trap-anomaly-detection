@@ -10,7 +10,7 @@ from timeit import default_timer as timer
 from datetime import timedelta
 
 from py.Dataset import Dataset
-from py.LocalFeatures import extract_descriptors, generate_dictionary_from_descriptors, generate_bow_features
+from py.LocalFeatures import extract_descriptors, generate_dictionary_from_descriptors, generate_bow_features, pick_random_descriptors
 
 def main():
     parser = argparse.ArgumentParser(description="BOW train script")
@@ -20,6 +20,7 @@ def main():
     parser.add_argument("--step_size", type=int, help="DSIFT keypoint step size. Smaller step size = more keypoints.", default=30)
     parser.add_argument("--keypoint_size", type=int, help="DSIFT keypoint size. Defaults to step_size.", default=-1)
     parser.add_argument("--include_motion", action="store_true", help="Include motion images for training.")
+    parser.add_argument("--random_prototypes", action="store_true", help="Pick random prototype vectors instead of doing kmeans.")
 
     args = parser.parse_args()
     if args.keypoint_size <= 0:
@@ -30,7 +31,13 @@ def main():
     session = ds.create_session(args.session_name)
     save_dir = f"./bow_train_NoBackup/{session.name}"
 
-    suffix = "_motion" if args.include_motion else ""
+    suffix = ""
+    if args.include_motion:
+        suffix += "_motion"
+        print("Including motion data for prototype selection!")
+    if args.random_prototypes:
+        suffix += "_random"
+        print("Picking random prototypes instead of using kmeans!")
     lapse_dscs_file = os.path.join(save_dir, f"lapse_dscs_{args.step_size}_{args.keypoint_size}.npy")
     motion_dscs_file = os.path.join(save_dir, f"motion_dscs_{args.step_size}_{args.keypoint_size}.npy")
     dictionary_file = os.path.join(save_dir, f"bow_dict_{args.step_size}_{args.keypoint_size}_{args.clusters}{suffix}.npy")
@@ -85,7 +92,10 @@ def main():
         # Step 2 - create BOW dictionary from Lapse SIFT descriptors
         print(f"Creating BOW vocabulary with {args.clusters} clusters from {len(lapse_dscs)} descriptors...")
         start_time = timer()
-        dictionary = generate_dictionary_from_descriptors(lapse_dscs, args.clusters)
+        if args.random_prototypes:
+            dictionary = pick_random_descriptors(lapse_dscs, args.clusters)
+        else:
+            dictionary = generate_dictionary_from_descriptors(lapse_dscs, args.clusters)
         end_time = timer()
         delta_time = timedelta(seconds=end_time-start_time)
         print(f"Clustering took {delta_time}.")

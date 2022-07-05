@@ -19,6 +19,7 @@ def main():
     parser.add_argument("--step_size", type=int, help="DSIFT keypoint step size. Smaller step size = more keypoints.", default=30)
     parser.add_argument("--keypoint_size", type=int, help="DSIFT keypoint size. Defaults to step_size.", default=-1)
     parser.add_argument("--include_motion", action="store_true", help="Include motion images for training.")
+    parser.add_argument("--random_prototypes", action="store_true", help="Pick random prototype vectors instead of doing kmeans.")
 
     args = parser.parse_args()
     if args.keypoint_size <= 0:
@@ -29,7 +30,13 @@ def main():
     session = ds.create_session(args.session_name)
     save_dir = f"./bow_train_NoBackup/{session.name}"
 
-    suffix = "_motion" if args.include_motion else ""
+    suffix = ""
+    if args.include_motion:
+        suffix += "_motion"
+        print("Including motion data for prototype selection!")
+    if args.random_prototypes:
+        suffix += "_random"
+        print("Picking random prototypes instead of using kmeans!")
     dictionary_file = os.path.join(save_dir, f"bow_dict_{args.step_size}_{args.keypoint_size}_{args.clusters}{suffix}.npy")
     train_feat_file = os.path.join(save_dir, f"bow_train_{args.step_size}_{args.keypoint_size}_{args.clusters}{suffix}.npy")
     eval_file = os.path.join(save_dir, f"bow_eval_{args.step_size}_{args.keypoint_size}_{args.clusters}{suffix}.csv")

@@ -76,6 +76,9 @@ class Session:
     def get_motion_folder(self) -> str:
         return os.path.join(self.folder, "Motion")
     
+    def get_full_folder(self) -> str:
+        return os.path.join(self.folder, "Full")
+    
     def scan(self, force=False, auto_save=True):
         if self.scanned and not force:
             raise ValueError("Session is already scanned. Use force=True to scan anyway and override scan progress.")

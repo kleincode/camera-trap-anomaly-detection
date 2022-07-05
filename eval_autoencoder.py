@@ -110,10 +110,11 @@ def main():
     # Motion eval
 
     def is_labeled(filename: str) -> bool:
-        return int(filename[10:-4]) <= LABELS[session.name]["max"]
+        img_nr = int(filename[-9:-4])
+        return (img_nr <= LABELS[session.name]["max"]) and (img_nr not in LABELS[session.name]["not_annotated"])
 
     def labeler(filename: str) -> int:
-        is_normal = (int(filename[10:-4]) in LABELS[session.name]["normal"])
+        is_normal = (int(filename[-9:-4]) in LABELS[session.name]["normal"])
         return 0 if is_normal else 1
     
     if os.path.isfile(motion_eval_file):
