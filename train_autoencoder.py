@@ -13,9 +13,9 @@ from torchvision.utils import save_image
 from torchinfo import summary
 
 from py.PyTorchData import create_dataloader, model_output_to_image
-from py.Autoencoder2 import Autoencoder
+from py.Autoencoder3 import Autoencoder
 
-def train_autoencoder(model: Autoencoder, train_dataloader: DataLoader, name: str, device: str = "cpu", num_epochs=100, criterion = nn.MSELoss(), lr: float = 1e-3, weight_decay: float = 1e-5, noise: bool = False, sparse: bool = False):
+def train_autoencoder(model: Autoencoder, train_dataloader: DataLoader, name: str, device: str = "cpu", num_epochs=100, criterion = nn.MSELoss(), lr: float = 1e-3, weight_decay: float = 1e-5, noise: bool = False, sparse: bool = False, reg_rate: float = 1e-4):
     model = model.to(device)
     print(f"Using {device} device")
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
@@ -37,11 +37,11 @@ def train_autoencoder(model: Autoencoder, train_dataloader: DataLoader, name: st
             latent = model.encoder(input)
             output = model.decoder(latent)
             loss = criterion(output, img)
-            total_loss += loss.data
+            total_loss += loss.item()
             if sparse:
-                reg_loss = 1e-4 * torch.mean(torch.abs(latent))
-                total_reg_loss += reg_loss.data
-                loss += reg_loss.data
+                reg_loss = reg_rate * torch.mean(torch.abs(latent))
+                total_reg_loss += reg_loss.item()
+                loss += reg_loss
             # ===================backward====================
             loss.backward()
             optimizer.step()
@@ -54,7 +54,7 @@ def train_autoencoder(model: Autoencoder, train_dataloader: DataLoader, name: st
         
         # log file
         with open(f"./ae_train_NoBackup/{name}/log.csv", "a+") as f:
-            f.write(f"{dsp_epoch},{total_loss}\n")
+            f.write(f"{dsp_epoch},{total_loss},{total_reg_loss}\n")
         
         # output image
         if epoch % 2 == 0:
@@ -62,7 +62,7 @@ def train_autoencoder(model: Autoencoder, train_dataloader: DataLoader, name: st
             save_image(pic, f"./ae_train_NoBackup/{name}/image_{dsp_epoch:03d}.png")
         
         # model checkpoint
-        if epoch % 5 == 0:
+        if epoch % 10 == 0:
             torch.save(model.state_dict(), f"./ae_train_NoBackup/{name}/model_{dsp_epoch:03d}.pth")
 
     torch.save(model.state_dict(), f"./ae_train_NoBackup/{name}/model_{num_epochs:03d}.pth")
@@ -76,8 +76,9 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, help="Number of epochs", default=100)
     parser.add_argument("--batch_size", type=int, help="Batch size (>=1)", default=32)
     parser.add_argument("--lr", type=float, help="Learning rate", default=1e-3)
+    parser.add_argument("--reg_rate", type=float, help="Sparse regularization rate", default=1e-4)
     parser.add_argument("--dropout", type=float, help="Dropout rate on all layers", default=0.05)
-    parser.add_argument("--latent_channels", type=float, help="Latent channels n (-> n*16 latent features)", default=32)
+    parser.add_argument("--latent", type=int, help="Number of latent features", default=512)
     parser.add_argument("--image_transforms", action="store_true", help="Truncate and resize images (only enable if the input images have not been truncated resized to the target size already)")
     parser.add_argument("--noise", action="store_true", help="Add Gaussian noise to model input")
     parser.add_argument("--sparse", action="store_true", help="Add L1 penalty to latent features")
@@ -90,7 +91,7 @@ if __name__ == "__main__":
         print("Image transforms disabled: Images are expected to be of the right size.")
     
     data_loader = create_dataloader(args.img_folder, batch_size=args.batch_size, skip_transforms=not args.image_transforms)
-    model = Autoencoder(dropout=args.dropout, latent_channels=args.latent_channels)
+    model = Autoencoder(dropout=args.dropout, latent_features=args.latent)
     print("Model:")
     summary(model, (args.batch_size, 3, 256, 256))
     print("Is CUDA available:", torch.cuda.is_available())
@@ -101,4 +102,4 @@ if __name__ == "__main__":
         print("Adding Gaussian noise to model input")
     if args.sparse:
         print("Adding L1 penalty to latent features (sparse)")
-    train_autoencoder(model, data_loader, args.name, device=args.device, num_epochs=args.epochs, lr=args.lr, noise=args.noise, sparse=args.sparse)
+    train_autoencoder(model, data_loader, args.name, device=args.device, num_epochs=args.epochs, lr=args.lr, noise=args.noise, sparse=args.sparse, reg_rate=args.reg_rate)

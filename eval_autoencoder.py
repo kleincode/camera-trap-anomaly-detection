@@ -15,18 +15,18 @@ from torch.utils.data import DataLoader
 from py.FileUtils import dump
 from py.Dataset import Dataset
 from py.PyTorchData import create_dataloader
-from py.Autoencoder2 import Autoencoder
+from py.Autoencoder3 import Autoencoder
 from py.Labels import LABELS
 
 TRAIN_FOLDER = "./ae_train_NoBackup"
 
-def load_autoencoder(train_name: str, device: str = "cpu", model_number: int = -1):
+def load_autoencoder(train_name: str, device: str = "cpu", model_number: int = -1, latent_features: int = 32):
     if model_number < 0:
         model_path = sorted(glob(f"./ae_train_NoBackup/{train_name}/model_*.pth"))[-1]
     else:
         model_path = f"./ae_train_NoBackup/{train_name}/model_{model_number:03d}.pth"
     print(f"Loading model from {model_path}... ", end="")
-    model = Autoencoder()
+    model = Autoencoder(latent_features=latent_features)
     model.load_state_dict(torch.load(model_path, map_location=torch.device(device)))
     model.eval()
     print("Loaded!")
@@ -63,6 +63,7 @@ def main():
     parser.add_argument("session", type=str, help="Session name")
     parser.add_argument("--device", type=str, help="PyTorch device to train on (cpu or cuda)", default="cpu")
     parser.add_argument("--batch_size", type=int, help="Batch size (>=1)", default=32)
+    parser.add_argument("--latent", type=int, help="Number of latent features", default=512)
     parser.add_argument("--model_number", type=int, help="Load model save of specific epoch (default: use latest)", default=-1)
     parser.add_argument("--image_transforms", action="store_true", help="Truncate and resize images (only enable if the input images have not been truncated resized to the target size already)")
     
@@ -85,7 +86,7 @@ def main():
     motion_eval_file = os.path.join(save_dir, f"{session.name}_motion.pickle")
 
     # Load model
-    model = load_autoencoder(args.name, args.device, args.model_number)
+    model = load_autoencoder(args.name, args.device, args.model_number, latent_features=args.latent)
     
     # Check CUDA
     print("Is CUDA available:", torch.cuda.is_available())

@@ -73,7 +73,7 @@ def get_log(name: str, display: bool = False, figsize: tuple = (12, 6)):
     losses = []
     with open(f"./ae_train_NoBackup/{name}/log.csv", "r") as f:
         for line in f:
-            it, loss = line.rstrip().split(",")
+            it, loss = line.rstrip().split(",")[:2]
             its.append(int(it))
             losses.append(float(loss))
     if display:

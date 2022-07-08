@@ -24,6 +24,7 @@ def display_images(images: list, titles: list, colorbar=False, size=(8, 5), row_
         titles (list of str): list of titles
         colorbar (bool, optional): Display colorbars. Defaults to False.
         size (tuple of ints, optional): plt size (width, height) per image. Defaults to (8, 5).
+        row_size (int, optional): Images per row. Defaults to 2.
     """
     num_imgs = len(images)
     num_cols = row_size
