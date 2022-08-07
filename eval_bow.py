@@ -7,6 +7,7 @@ import argparse
 import os
 import numpy as np
 from sklearn import svm
+from tqdm import tqdm
 
 from py.Dataset import Dataset
 from py.LocalFeatures import generate_bow_features
@@ -49,18 +50,26 @@ def main():
         print(f"ERROR: Eval file already exists! ({eval_file})")
     else:
         print(f"Loading dictionary from {dictionary_file}...")
-        dictionary = np.load(dictionary_file)
+        dictionaries = np.load(dictionary_file)
+        print(f"Shape of dictionaries: {dictionaries.shape}") # (num_dicts, dict_size, 128)
+        assert len(dictionaries.shape) == 3 and dictionaries.shape[2] == 128
         print(f"Loading training data from {train_feat_file}...")
-        train_data = np.load(train_feat_file).squeeze()
+        train_data = np.load(train_feat_file)
+        print(f"Shape of training data: {train_data.shape}") # (num_train_images, num_dicts, 1, dict_size)
+        assert len(train_data.shape) == 4
+        assert train_data.shape[1] == dictionaries.shape[0]
+        assert train_data.shape[2] == 1
+        assert train_data.shape[3] == dictionaries.shape[1]
         
-        print(f"Fitting one-class SVM...")
-        clf = svm.OneClassSVM().fit(train_data)
+        print(f"Fitting {dictionaries.shape[0]} one-class SVMs...")
+        clfs = [svm.OneClassSVM().fit(train_data[:,i,0,:].squeeze()) for i in tqdm(range(dictionaries.shape[0]))]
 
         print("Evaluating...")
         with open(eval_file, "a+") as f:
-            for filename, feat in generate_bow_features(list(session.generate_motion_images()), dictionary, kp_step=args.step_size, kp_size=args.keypoint_size):
-                y = clf.decision_function(feat)[0]
-                f.write(f"{filename},{y}\n")
+            for filename, feats in generate_bow_features(list(session.generate_motion_images()), dictionaries, kp_step=args.step_size, kp_size=args.keypoint_size):
+                ys = [clf.decision_function(feat)[0] for clf, feat in zip(clfs, feats)]
+                ys_out = ",".join([str(y) for y in ys])
+                f.write(f"{filename},{ys_out}\n")
                 f.flush()
 
         print("Complete!")

@@ -87,29 +87,32 @@ def pick_random_descriptors(dscs, dictionary_size: int):
 
     return dscs[np.random.choice(len(dscs), size=dictionary_size, replace=False)]
 
-def generate_bow_features(images: list[SessionImage], dictionary, kp_step: int = 30, kp_size: int = 60):
-    """Calculates the BOW features for the provided images using dictionary.
-    Yields a feature vector for every image.
+def generate_bow_features(images: list[SessionImage], dictionaries, kp_step: int = 30, kp_size: int = 60):
+    """Calculates the BOW features for the provided images for every dictionary.
+    Yields a list of feature vectors for every image.
 
     Args:
         images (list[SessionImage]): List of images to read and compute feature vectors from.
-        dictionary (np.array, shape=(-1, 128)): BOW dictionary.
+        dictionaries (np.array of shape=(num_dicts, dict_size, 128)): List of BOW dictionaries.
         kp_step (int, optional): Keypoint step size, see dense_keypoints. Must be identical to the step size used for vocabulary generation. Defaults to 30.
         kp_size (int, optional): Keypoint size, see dense_keypoints. Must be identical to the size used for vocabulary generation. Defaults to 60.
 
     Yields:
-        (str, np.array of shape=(dictionary.shape[0])): (filename, feature vector)
+        (str, np.array of shape=(num_dicts, dict_size)): (filename, feature vectors)
     """
-    assert len(dictionary.shape) == 2 and dictionary.shape[1] == 128
+    assert len(dictionaries.shape) == 3 and dictionaries.shape[2] == 128
     assert kp_size > 0 and kp_step > 0
 
-    flann = cv.FlannBasedMatcher({"algorithm": 0, "trees": 5}, {"checks": 50})
-    sift = cv.SIFT_create()
-    bow_extractor = cv.BOWImgDescriptorExtractor(sift, flann) # or cv.BFMatcher(cv.NORM_L2)
-    bow_extractor.setVocabulary(dictionary)
+    extractors = []
+    for dictionary in dictionaries:
+        flann = cv.FlannBasedMatcher({"algorithm": 0, "trees": 5}, {"checks": 50})
+        sift = cv.SIFT_create()
+        bow_extractor = cv.BOWImgDescriptorExtractor(sift, flann) # or cv.BFMatcher(cv.NORM_L2)
+        bow_extractor.setVocabulary(dictionary)
+        extractors.append(bow_extractor)
     
     for image in tqdm(images):
         img = image.read_opencv(gray=True)
         kp = dense_keypoints(img, kp_step, kp_size)
-        feat = bow_extractor.compute(img, kp)
+        feat = np.array([ext.compute(img, kp) for ext in extractors])
         yield image.filename, feat

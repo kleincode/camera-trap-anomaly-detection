@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader
 from py.FileUtils import dump
 from py.Dataset import Dataset
 from py.PyTorchData import create_dataloader
-from py.Autoencoder3 import Autoencoder
+from py.Autoencoder2 import Autoencoder
 from py.Labels import LABELS
 
 TRAIN_FOLDER = "./ae_train_NoBackup"
@@ -32,10 +32,11 @@ def load_autoencoder(train_name: str, device: str = "cpu", model_number: int = -
     print("Loaded!")
     return model
 
-def eval_autoencoder(model: Autoencoder, data_loader: DataLoader, device: str = "cpu"):
+def eval_autoencoder(model: Autoencoder, data_loader: DataLoader, device: str = "cpu", include_images: bool = False):
     losses = [] # reconstruction errors
     encodings = [] # latent representations for KDE
     labels = []
+    imgs = [] # input images (optional)
 
     with torch.no_grad():
         model = model.to(device)
@@ -54,7 +55,9 @@ def eval_autoencoder(model: Autoencoder, data_loader: DataLoader, device: str = 
             for input, enc, output in zip(features, encoded_flat, output_batch):
                 encodings.append(enc)
                 losses.append(criterion(input, output).cpu().numpy())
-    return np.array(losses), np.array(encodings), np.array(labels)
+                if include_images:
+                    imgs.append(input.cpu().numpy())
+    return np.array(losses), np.array(encodings), np.array(labels), np.array(imgs)
 
 def main():
     parser = argparse.ArgumentParser(description="Autoencoder eval script - evaluates Motion and Lapse images of session")
@@ -66,6 +69,7 @@ def main():
     parser.add_argument("--latent", type=int, help="Number of latent features", default=512)
     parser.add_argument("--model_number", type=int, help="Load model save of specific epoch (default: use latest)", default=-1)
     parser.add_argument("--image_transforms", action="store_true", help="Truncate and resize images (only enable if the input images have not been truncated resized to the target size already)")
+    parser.add_argument("--include_images", action="store_true", help="Include input images in Motion eval file")
     
 
     args = parser.parse_args()
@@ -82,8 +86,9 @@ def main():
     train_dir = os.path.join(TRAIN_FOLDER, args.name)
     save_dir = os.path.join(train_dir, "eval")
     os.makedirs(save_dir, exist_ok=True)
+    suffix = "_withimgs" if args.include_images else ""
     lapse_eval_file = os.path.join(save_dir, f"{session.name}_lapse.pickle")
-    motion_eval_file = os.path.join(save_dir, f"{session.name}_motion.pickle")
+    motion_eval_file = os.path.join(save_dir, f"{session.name}_motion{suffix}.pickle")
 
     # Load model
     model = load_autoencoder(args.name, args.device, args.model_number, latent_features=args.latent)
@@ -123,7 +128,7 @@ def main():
     else:
         print("Creating motion data loader... ", end="")
         motion_loader = create_dataloader(session.get_motion_folder(), batch_size=args.batch_size, skip_transforms=not args.image_transforms, shuffle=False, labeler=labeler, filter=is_labeled)
-        results = eval_autoencoder(model, motion_loader, args.device)
+        results = eval_autoencoder(model, motion_loader, args.device, include_images=args.include_images)
         dump(motion_eval_file, results)
         print(f"Results saved to {motion_eval_file}!")
     print("Done.")

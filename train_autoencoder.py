@@ -6,6 +6,8 @@ import argparse
 import os
 from tqdm import tqdm
 import torch
+import numpy as np
+import random
 from torch import nn
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
@@ -13,7 +15,7 @@ from torchvision.utils import save_image
 from torchinfo import summary
 
 from py.PyTorchData import create_dataloader, model_output_to_image
-from py.Autoencoder3 import Autoencoder
+from py.Autoencoder2 import Autoencoder
 
 def train_autoencoder(model: Autoencoder, train_dataloader: DataLoader, name: str, device: str = "cpu", num_epochs=100, criterion = nn.MSELoss(), lr: float = 1e-3, weight_decay: float = 1e-5, noise: bool = False, sparse: bool = False, reg_rate: float = 1e-4):
     model = model.to(device)
@@ -89,6 +91,10 @@ if __name__ == "__main__":
         print("Image transforms enabled: Images will be truncated and resized.")
     else:
         print("Image transforms disabled: Images are expected to be of the right size.")
+
+    torch.manual_seed(10810)
+    np.random.seed(10810)
+    random.seed(10810)
     
     data_loader = create_dataloader(args.img_folder, batch_size=args.batch_size, skip_transforms=not args.image_transforms)
     model = Autoencoder(dropout=args.dropout, latent_features=args.latent)

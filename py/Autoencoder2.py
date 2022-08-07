@@ -1,8 +1,11 @@
 from torch import nn
 
 class Autoencoder(nn.Module):
-    def __init__(self, dropout=0.1, latent_channels=32):
+    def __init__(self, dropout=0.1, latent_features=512):
         super(Autoencoder, self).__init__()
+        if latent_features % 16 != 0:
+            raise ValueError("latent_features must be a multiple of 16 in this architecture.")
+        latent_channels = latent_features // 16
         self.encoder = nn.Sequential(
             nn.Dropout(dropout),
             nn.Conv2d(3, 32, kernel_size=7, stride=2, padding=3),

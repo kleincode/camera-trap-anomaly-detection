@@ -39,5 +39,23 @@ def display_images(images: list, titles: list, colorbar=False, size=(8, 5), row_
     plt.tight_layout()
     plt.show()
 
+def save_image(image, filename: str, title: str, colorbar=False, size=(8, 5), **imshowargs):
+    """Saves an image to file (using plt.imshow).
+
+    Args:
+        image (np.ndarray): Image.
+        title (str): Title.
+        filename (str): Target file name.
+        colorbar (bool, optional): Display colorbars. Defaults to False.
+        size (tuple, optional): plt size (width, height). Defaults to (8, 5).
+    """
+    plt.figure(figsize=size)
+    plt.imshow(image, **imshowargs)
+    plt.title(title)
+    if colorbar:
+        plt.colorbar()
+    plt.tight_layout()
+    plt.savefig(filename, bbox_inches="tight")
+
 def is_daytime(img, threshold=50) -> bool:
     return np.mean([abs(img[:,:,0] - img[:,:,1]), abs(img[:,:,1] - img[:,:,2]), abs(img[:,:,2] - img[:,:,0])]) > threshold
