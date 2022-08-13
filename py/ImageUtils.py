@@ -49,6 +49,7 @@ def save_image(image, filename: str, title: str, colorbar=False, size=(8, 5), **
         colorbar (bool, optional): Display colorbars. Defaults to False.
         size (tuple, optional): plt size (width, height). Defaults to (8, 5).
     """
+    plt.ioff()
     plt.figure(figsize=size)
     plt.imshow(image, **imshowargs)
     plt.title(title)

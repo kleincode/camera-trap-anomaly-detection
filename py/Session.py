@@ -108,7 +108,7 @@ class Session:
             print("Saving...")
             self.save_scans()
     
-    def check_lapse_duplicates(self) -> bool:
+    def check_lapse_duplicates(self):
         total = 0
         total_duplicates = 0
         total_multiples = 0
