@@ -215,7 +215,7 @@ class Session:
         dates = sorted(list(self.motion_map.keys()))
         start_date = dates[0]
         for date in dates:
-            if abs((date - start_date).total_seconds()) > 60 * 20:
+            if abs((date - start_date).total_seconds()) > 60 * 5:
                 # end image time series
                 yield imgs
                 start_date = date
