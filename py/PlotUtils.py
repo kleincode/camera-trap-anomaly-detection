@@ -1,7 +1,21 @@
+# This file defines helper functions for plotting.
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc
 
 def plot_roc_curve(test_labels: list, test_df: list, title: str, figsize=(8, 8), savefile = None, show: bool = True):
+    """Plots the roc curve of a classifier.
+
+    Args:
+        test_labels (list): Labels for the test examples.
+        test_df (list): Decision function values for the test examples.
+        title (str): Title of the plot.
+        figsize (tuple, optional): Size of the plot. Defaults to (8, 8).
+        savefile (_type_, optional): Output file without ending. Will be saved as pdf and png. If None, the plot is not saved. Defaults to None.
+        show (bool, optional): If False, do not show the plot. Defaults to True.
+
+    Returns:
+        fpr (list of float), tpr (list of float), thresholds (list of float), auc_score (float): Points on roc curves, their thresholds, and the area under ROC curve.
+    """
     fpr, tpr, thresholds = roc_curve(test_labels, test_df)
     auc_score = auc(fpr, tpr)
 
@@ -25,6 +39,18 @@ def plot_roc_curve(test_labels: list, test_df: list, title: str, figsize=(8, 8),
     return fpr, tpr, thresholds, auc_score
 
 def get_percentiles(fpr, tpr, thresholds, percentiles=[0.9, 0.95, 0.98, 0.99], verbose = True):
+    """Returns the maximum possible TNR (elimination rate) for given minimum TPR.
+
+    Args:
+        fpr (list of float): FPR values from ROC curve.
+        tpr (list of float): TPR values from ROC curve.
+        thresholds (list of float): Thresholds from ROC curve.
+        percentiles (list of float, optional): List of minimum TPR values to use as input. Defaults to [0.9, 0.95, 0.98, 0.99].
+        verbose (bool, optional): If True, print the results. Defaults to True.
+
+    Returns:
+        list of float: TNR values aka elimination rates.
+    """
     assert percentiles == sorted(percentiles)
     tnrs = []
     for percentile in percentiles:

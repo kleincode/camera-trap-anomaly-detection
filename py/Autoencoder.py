@@ -1,3 +1,8 @@
+# This is the initial autoencoder architecture.
+# Convolutional with 5 conv layers + 1 dense layer per encoder and decoder.
+# relu on hidden layers, tanh on output layer
+# Number of latent features: 512
+
 from torch import nn
 
 class Autoencoder(nn.Module):

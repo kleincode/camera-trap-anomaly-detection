@@ -4,10 +4,16 @@ from py.DatasetStatistics import DatasetStatistics
 from py.FileUtils import list_folders, list_jpegs_recursive, expected_subfolders, verify_expected_subfolders
 from py.Session import Session
 
-
+# Represents the whole dataset consisting of multiple sessions. Can be used to get
+# session instances or to get an statistics instance.
 class Dataset:
 
     def __init__(self, base_path: str):
+        """Create a new dataset instance.
+
+        Args:
+            base_path (str): Path to dataset, should contain subfolders for sessions.
+        """
         self.base_path = base_path
         self.raw_sessions = []
         self.__parse_subdirectories()
@@ -23,10 +29,20 @@ class Dataset:
 
 
     def get_sessions(self) -> list:
+        """Get names of all sessions (without prefixes).
+
+        Returns:
+            list of str: session names
+        """
         # cut off the first 33 characters (redundant)
         return [name[33:] for name in self.raw_sessions]
     
     def create_statistics(self) -> DatasetStatistics:
+        """Accumulate statistics over the dataset and return a new statistics instance.
+
+        Returns:
+            DatasetStatistics: statistics instance
+        """
         counts = {}
         for folder in tqdm(self.raw_sessions):
             counts[folder[33:]] = {}
@@ -39,6 +55,17 @@ class Dataset:
         return DatasetStatistics(counts)
 
     def create_session(self, session_name: str) -> Session:
+        """Return a new session instance from the session name.
+
+        Args:
+            session_name (str): Session name, e.g. beaver_01. Not case-sensitive.
+
+        Raises:
+            ValueError: No or multiple sessions matching session name
+
+        Returns:
+            Session: Session instance
+        """
         if session_name in self.raw_sessions:
             return Session(os.path.join(self.base_path, session_name))
         filtered = [s for s in self.raw_sessions if session_name.lower() in s.lower()]

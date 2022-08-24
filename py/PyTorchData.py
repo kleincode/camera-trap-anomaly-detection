@@ -1,10 +1,21 @@
+# Functions related to approach 4 (autoencoder).
+# For training and evaluation scripts, see ./train_autoencoder.py and ./eval_autoencoder.py.
 import os
 import matplotlib.pyplot as plt
 from torchvision import io, transforms
 from torch.utils.data import DataLoader, Dataset
 
+# PyTorch dataset instance which loads images from a directory
 class ImageDataset(Dataset):
     def __init__(self, img_dir: str, transform = None, labeler = None, filter = lambda filename: True):
+        """Create a new PyTorch dataset from images in a directory.
+
+        Args:
+            img_dir (str): Source directory which contains the images.
+            transform (lambda img: transformed_img, optional): Input transform function. Defaults to None.
+            labeler (lambda str: int, optional): Labeling function. Input is the filename, output the label. Defaults to None.
+            filter (lambda str: bool, optional): Input filter function. Input is the filename. Images where filter returns False are skipped. Defaults to no filtering.
+        """
         self.img_dir = img_dir
         self.transform = transform
         self.labeler = labeler
@@ -18,9 +29,11 @@ class ImageDataset(Dataset):
     def __getitem__(self, idx):
         img_path = os.path.join(self.img_dir, self.files[idx])
         img = io.read_image(img_path)
+        # apply transform function
         if self.transform:
             img = self.transform(img)
         label = 0
+        # get label
         if self.labeler:
             label = self.labeler(self.files[idx])
         return img, label
@@ -63,12 +76,30 @@ def create_dataloader(img_folder: str, target_size: tuple = (256, 256), batch_si
     return DataLoader(data, batch_size=batch_size, shuffle=shuffle)
 
 def model_output_to_image(y):
+    """Converts the raw model output back to an image by normalizing and clamping it to [0, 1] and reshaping it.
+
+    Args:
+        y (PyTorch tensor): Autoencoder output.
+
+    Returns:
+        PyTorch tensor: Image from autoencoder output.
+    """
     y = 0.5 * (y + 1) # normalize back to [0, 1]
     y = y.clamp(0, 1) # clamp to [0, 1]
     y = y.view(y.size(0), 3, 256, 256)
     return y
 
 def get_log(name: str, display: bool = False, figsize: tuple = (12, 6)):
+    """Parses a training log file and returns the iteration and loss values.
+
+    Args:
+        name (str): Name of training session.
+        display (bool, optional): If True, plot the training curve. Defaults to False.
+        figsize (tuple, optional): Plot size if display is True. Defaults to (12, 6).
+
+    Returns:
+        iterations (list of int), losses (list of float): Training curve values
+    """
     its = []
     losses = []
     with open(f"./ae_train_NoBackup/{name}/log.csv", "r") as f:

@@ -1,3 +1,8 @@
+# This is the preferred autoencoder architecture.
+# Fully convolutional with 7 layer encoder and decoder.
+# Dropout, relu on hidden layers, tanh on output layer
+# Allows multiples of 16 as number of latent features
+
 from torch import nn
 
 class Autoencoder(nn.Module):

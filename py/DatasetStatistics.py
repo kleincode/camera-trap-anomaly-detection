@@ -4,6 +4,7 @@ from warnings import warn
 import numpy as np
 import pandas as pd
 
+# helper for accumulating, saving, loading, and displaying dataset statistics
 class DatasetStatistics:
 
     def __init__(self, stats_dict: dict = None, load_from_file: str = None):
@@ -30,6 +31,14 @@ class DatasetStatistics:
         self.df = pd.DataFrame.from_dict(self.stats).transpose()
 
     def add_total_row(self, row_name = "Z_Total") -> "DatasetStatistics":
+        """Add a row to the pandas dataframe with totals of all columns. Should only be called once.
+
+        Args:
+            row_name (str, optional): Name of the new row. Defaults to "Z_Total".
+
+        Returns:
+            DatasetStatistics: self
+        """
         if row_name in self.stats:
             warn(f"{row_name} is already a defined row")
             return self
@@ -47,18 +56,47 @@ class DatasetStatistics:
         return self
     
     def save(self, filename = "dataset_stats.npy"):
+        """Save statistics stored in this instance to a file using numpy.
+
+        Args:
+            filename (str, optional): Target file name. Defaults to "dataset_stats.npy".
+        """
         np.save(filename, self.stats)
         print(f"Saved to {filename}.")
     
     def load(self, filename = "dataset_stats.npy"):
+        """Load statistics from a file using numpy.
+
+        Args:
+            filename (str, optional): Target file name. Defaults to "dataset_stats.npy".
+        """
         self.stats = np.load(filename, allow_pickle=True).tolist()
         self.__update_dataframe()
         print(f"Loaded from {filename}.")
 
     def view(self, col_order = ["Lapse", "Motion", "Full", "Total"]) -> pd.DataFrame:
+        """Display the statistics dataframe.
+
+        Args:
+            col_order (list, optional): Order of columns. Defaults to ["Lapse", "Motion", "Full", "Total"].
+
+        Returns:
+            pd.DataFrame: data frame
+        """
         return self.df.sort_index()[col_order]
     
     def plot_sessions(self, cols = ["Lapse", "Motion", "Full"], figsize = (20, 10), style = {"width": 2}, exclude_last_row = False):
+        """Plot the statistics dataframe as a bar plot.
+
+        Args:
+            cols (list, optional): Columns to include. Defaults to ["Lapse", "Motion", "Full"].
+            figsize (tuple, optional): Plot size. Defaults to (20, 10).
+            style (dict, optional): Additional style arguments. Defaults to {"width": 2}.
+            exclude_last_row (bool, optional): If True, the last row will not be plotted. Defaults to False.
+
+        Returns:
+            _type_: _description_
+        """
         df = self.df[cols]
         # Plot lapse, motion, full columns without the last row (Z_Total)
         if exclude_last_row:

@@ -6,13 +6,15 @@ import subprocess
 from warnings import warn
 import os
 from tqdm import tqdm
-import matplotlib.image as mpimg
 from skimage import transform, io
 import IPython.display as display
 
 from py.FileUtils import list_folders, list_jpegs_recursive, verify_expected_subfolders
 from py.ImageUtils import display_images, get_image_date
 
+# A session represents the images taken from a single camera trap at a single position.
+# Each session has a subfolder in the dataset directory specifying the session name.
+# Each session has Lapse, Motion, and Full images, which can be accessed via this class.
 class Session:
     def __init__(self, folder: str):
         self.folder = folder
@@ -35,6 +37,9 @@ class Session:
             print("Session not scanned. Run session.scan() to create scan files")
     
     def load_scans(self):
+        """ Loads scan results (lapse dates, motion dates, lapse map) from files.
+            Use save_scans() or scan(auto_save=True) to save scan results.
+        """
         lapse_dates_file = os.path.join("session_scans", self.name, "lapse_dates.pickle")
         motion_dates_file = os.path.join("session_scans", self.name, "motion_dates.pickle")
         lapse_map_file = os.path.join("session_scans", self.name, "lapse_map.pickle")
@@ -56,6 +61,10 @@ class Session:
             self.scanned = False
     
     def save_scans(self):
+        """ Saves scan results (lapse dates, motion dates, lapse map) to files using pickle.
+            Use load_scans() to load scan results.
+            The output directory is ./session_scans/{session.name}
+        """
         os.makedirs(os.path.join("session_scans", self.name), exist_ok=True)
         lapse_dates_file = os.path.join("session_scans", self.name, "lapse_dates.pickle")
         motion_dates_file = os.path.join("session_scans", self.name, "motion_dates.pickle")
@@ -71,15 +80,28 @@ class Session:
             print(f"Saved {lapse_map_file}")
     
     def get_lapse_folder(self) -> str:
+        """Returns the path of the Lapse folder."""
         return os.path.join(self.folder, "Lapse")
     
     def get_motion_folder(self) -> str:
+        """Returns the path of the Motion folder."""
         return os.path.join(self.folder, "Motion")
     
     def get_full_folder(self) -> str:
+        """Returns the path of the Full folder."""
         return os.path.join(self.folder, "Full")
     
     def scan(self, force=False, auto_save=True):
+        """Scans Motion and Lapse images for their EXIF dates. This populates the fields
+        motion_dates, lapse_dates and motion_map.
+
+        Args:
+            force (bool, optional): Scan even if this session was already scanned. Defaults to False.
+            auto_save (bool, optional): Save scan results after scan. Defaults to True.
+
+        Raises:
+            ValueError: Session was already scanned and force=False.
+        """
         if self.scanned and not force:
             raise ValueError("Session is already scanned. Use force=True to scan anyway and override scan progress.")
         # Scan motion dates
@@ -109,6 +131,14 @@ class Session:
             self.save_scans()
     
     def check_lapse_duplicates(self):
+        """Checks the Lapse images for duplicates and prints the results.
+        A duplicate means there are two or more Lapse images with the same EXIF date.
+        A multiple means there are three or more such images (includes duplicates).
+        Deviant duplicate means there are two or more images which have the same EXIF date but are not identical (have different file sizes).
+
+        Returns:
+            total (int), total_duplicates (int), total_multiples (int), deviant_duplicates (int)
+        """
         total = 0
         total_duplicates = 0
         total_multiples = 0
@@ -135,6 +165,11 @@ class Session:
         return total, total_duplicates, total_multiples, deviant_duplicates
     
     def open_images_for_date(self, date: datetime):
+        """Open all lapse images with the specified EXIF date using the system image viewer.
+
+        Args:
+            date (datetime): Lapse date.
+        """
         img_names = self.lapse_map.get(date, [])
         if len(img_names) == 0:
             warn("No images for this date!")
@@ -144,14 +179,24 @@ class Session:
             subprocess.call(("xdg-open", full_path))
 
     def get_motion_image_from_filename(self, filename: str) -> "MotionImage":
+        """Returns a MotionImage instance from the filename of a motion image.
+
+        Args:
+            filename (str): File name of motion image.
+
+        Raises:
+            ValueError: Unknown motion file name.
+
+        Returns:
+            MotionImage: MotionImage instance.
+        """
         if filename in self.motion_dates:
             return MotionImage(self, filename, self.motion_dates[filename])
         else:
             raise ValueError(f"Unknown motion file name: {filename}")
     
     def __generate_motion_map(self):
-        """Populates self.motion_map which maps dates to motion images
-        """
+        """Populates self.motion_map which maps dates to motion images"""
         if self.motion_map is not None:
             return
         print("Generating motion map...")
@@ -163,11 +208,28 @@ class Session:
                 self.motion_map[date] = [filename]
     
     def get_motion_images_from_date(self, date: datetime):
+        """Returns MotionImage instances for all motion images with the specified EXIF date.
+
+        Args:
+            date (datetime): Motion date.
+        """
         self.__generate_motion_map()
         filenames = self.motion_map.get(date, [])
         return [MotionImage(self, filename, date) for filename in filenames]
     
     def get_random_motion_image(self, day_only=False, night_only=False) -> "MotionImage":
+        """Returns a MotionImage instance of a random Motion image.
+
+        Args:
+            day_only (bool, optional): Only return daytime images. Defaults to False.
+            night_only (bool, optional): Only return nighttime images. Defaults to False.
+
+        Raises:
+            ValueError: No motion images in this session.
+
+        Returns:
+            MotionImage: Random MotionImage or None if not found
+        """
         if len(self.motion_dates) == 0:
             raise ValueError("No motion images in session!")
         img = None
@@ -208,6 +270,17 @@ class Session:
         return imgs
     
     def generate_motion_image_sets(self) -> list:
+        """Generator function which yields consecutively taken motion image sets.
+
+        Raises:
+            ValueError: No motion images in this session.
+
+        Returns:
+            list: _description_
+
+        Yields:
+            Iterator[list of MotionImage]: consecutive motion image set
+        """
         self.__generate_motion_map()
         if len(self.motion_map) == 0:
             raise ValueError("No motion images in session!")
@@ -283,6 +356,7 @@ class Session:
         next_img = None if next_date is None else LapseImage(self, self.lapse_map[next_date][0], next_date)
         return previous_img, next_img
 
+# Abstract class which represents an image in a session (either Motion or Lapse).
 class SessionImage:
     def __init__(self, session: Session, subfolder: str, filename: str, date: datetime):
         self.session = session
@@ -293,14 +367,26 @@ class SessionImage:
             raise ValueError(f"File {subfolder}/{filename} in session folder {session.folder} not found!")
     
     def get_full_path(self) -> str:
+        """Returns the full path of this image. """
         return os.path.join(self.session.folder, self.subfolder, self.filename)
     
     def open(self):
+        """Open this image using the system image viewer. """
         full_path = self.get_full_path()
         print(f"Opening {full_path}...")
         subprocess.call(("xdg-open", full_path))
 
     def read(self, truncate_y = (40, 40), scale=1, gray=True):
+        """Read this image into a numpy array.
+
+        Args:
+            truncate_y (tuple, optional): Crop of the image at the top and bottom, respectively. Defaults to (40, 40).
+            scale (int, optional): Scale factor for rescaling. Defaults to 1.
+            gray (bool, optional): If True, read the image as grayscale. Defaults to True.
+
+        Returns:
+            np.array: image
+        """
         full_path = self.get_full_path()
         img = io.imread(full_path, as_gray=gray)
         # truncate
@@ -317,6 +403,16 @@ class SessionImage:
         return img
     
     def read_opencv(self, truncate_y = (40, 40), scale=1, gray=True):
+        """Read this image into an OpenCV Mat.
+
+        Args:
+            truncate_y (tuple, optional): Crop of the image at the top and bottom, respectively. Defaults to (40, 40).
+            scale (int, optional): Scale factor for rescaling. Defaults to 1.
+            gray (bool, optional): If True, read the image as grayscale. Defaults to True.
+
+        Returns:
+            OpenCV Mat: image
+        """
         full_path = self.get_full_path()
         img = cv.imread(full_path)
         # grayscale
@@ -337,14 +433,18 @@ class SessionImage:
         
 
     def is_daytime(self):
+        """Returns True if this image was taken at daytime based on the EXIF date. """
         return 6 <= self.date.hour <= 18
     
     def is_nighttime(self):
+        """Returns True if this image was taken at nighttime based on the EXIF date. """
         return not self.is_daytime()
     
     def to_ipython_image(self, width=500, height=None):
+        """Return an IPython image displaying this image. """
         return display.Image(filename=self.get_full_path(), width=width, height=height)
 
+# Represents a single Motion image. Should only be instantiated by Session.
 class MotionImage(SessionImage):
     def __init__(self, session: Session, filename: str, date: datetime):
         super().__init__(session, "Motion", filename, date)
@@ -352,6 +452,13 @@ class MotionImage(SessionImage):
             raise ValueError(f"File name {filename} not in session!")
 
     def get_closest_lapse_images(self):
+        """ Returns the closest lapse images before and after and the rel-value.
+            rel is a value between 0 and 1. The close rel is to 0 (1), the closer the motion image is too
+            the before (after) lapse image. If no lapse images were found, rel is -1.
+
+        Returns:
+            before (LapseImage or None), after (LapseImage or None), rel (float)
+        """
         before, after = self.session.get_closest_lapse_images(self.filename)
         rel = -1
         # rel = 0 if motion image was taken at before lapse image, rel = 1 if motion image was taken at after lapse image
@@ -364,7 +471,8 @@ class MotionImage(SessionImage):
         else:
             warn("No before and no after image!")
         return before, after, rel
-        
+
+# Represents a single Lapse image. Should only be instantiated by Session. 
 class LapseImage(SessionImage):
     def __init__(self, session: Session, filename: str, date: datetime):
         super().__init__(session, "Lapse", filename, date)

@@ -1,3 +1,8 @@
+# Annotations for all sessions that were evaluated in the paper.
+# Annotations generated using quick_label.py can be pasted here.
+# Each session is labeled using the "normal", "anomalous", "not_annotated", and "max" keys.
+# Every motion image is referenced by a number which can be found in its filename.
+# Beaver_01 contains the deprecated "small" key which holds a list of anomalous images with small animals such as birds.
 
 LABELS = {
     "Beaver_01": {
@@ -21,4 +26,5 @@ LABELS = {
     }
 }
 
+# GFox_03 is generated from Fox_03, so the labels stay the same
 LABELS["GFox_03"] = LABELS["Fox_03"]

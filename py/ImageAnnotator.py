@@ -4,6 +4,8 @@ from py.Session import Session
 from py.ImageClassifier import AbstractImageClassifier
 import numpy as np
 
+# Old annotator script using IPython widgets, which are very slow and sometimes buggy.
+# It is preferred to use quick_label.py.
 class ImageAnnotator():
     def __init__(self, classifier: AbstractImageClassifier, session: Session, initial_scores = [], initial_annotations = [], load_from = None):
         self.scores = initial_scores
@@ -26,6 +28,7 @@ class ImageAnnotator():
         anomalous_btn.on_click(self.mark_as_anomalous)
         self.next_image()
     
+    # Click on normal button
     def mark_as_normal(self, _):
         with self.output:
             print("Marking as normal...")
@@ -33,6 +36,7 @@ class ImageAnnotator():
         self.scores.append(self.score)
         self.next_image()
     
+    # Click on anomalous button
     def mark_as_anomalous(self, _):
         with self.output:
             print("Marking as anomalous...")
@@ -40,6 +44,7 @@ class ImageAnnotator():
         self.scores.append(self.score)
         self.next_image()
     
+    # Show next image
     def next_image(self):
         img = self.session.get_random_motion_image(day_only=True)
         self.score = self.classifier.evaluate(img)
@@ -48,5 +53,6 @@ class ImageAnnotator():
             display(img.to_ipython_image())
             print(f"score = {self.score}")
 
+    # Save annotation data to file
     def save(self, filename: str):
         np.save(filename, [self.annotations, self.scores])

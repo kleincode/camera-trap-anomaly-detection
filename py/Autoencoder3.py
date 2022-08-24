@@ -1,3 +1,9 @@
+# Experimental architecture; not used for paper results.
+# Convolutional with 6 conv layers + 1 dense layer per encoder and decoder.
+# Dropout, relu on hidden layers, tanh on output layer
+# Allows any number of latent features
+# More parameters than Autoencoder2
+
 from torch import nn
 
 class Autoencoder(nn.Module):

@@ -1,3 +1,4 @@
+# This file defines helper functions for processing files.
 from glob import glob
 import os
 import pickle
@@ -40,9 +41,23 @@ def verify_expected_subfolders(session_path: str):
 # Pickle helpers
 
 def dump(filename: str, data):
+    """Dumps data using pickle.
+
+    Args:
+        filename (str): Target file name.
+        data (any): Data.
+    """
     with open(filename, "wb") as f:
         pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
 
 def load(filename: str):
+    """Loads data using pickle.
+
+    Args:
+        filename (str): Target file name.
+
+    Returns:
+        any: loaded data
+    """
     with open(filename, "rb") as f:
         return pickle.load(f)

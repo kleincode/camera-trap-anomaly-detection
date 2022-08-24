@@ -1,3 +1,4 @@
+# This file defines helper functions for processing images.
 from datetime import datetime
 from PIL import Image
 import numpy as np
@@ -59,4 +60,14 @@ def save_image(image, filename: str, title: str, colorbar=False, size=(8, 5), **
     plt.savefig(filename, bbox_inches="tight")
 
 def is_daytime(img, threshold=50) -> bool:
+    """Returns true when the image is taken at daytime.
+    This is evaluated based on the image statistics.
+
+    Args:
+        img (2d np.array): image
+        threshold (int, optional): Threshold which controls the bias towards predicting night or day. Defaults to 50.
+
+    Returns:
+        bool: True if day
+    """
     return np.mean([abs(img[:,:,0] - img[:,:,1]), abs(img[:,:,1] - img[:,:,2]), abs(img[:,:,2] - img[:,:,0])]) > threshold
